@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Caddie Playbook — Trump National LA</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1f0d; }
+  #root { min-height: 100vh; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const HOLES = [
+  {
+    num: 1, par: 4, white: 309, hdcp: 11, name: "The Welcome",
+    teeClub: "3-Hybrid", parChance: true,
+    strategy: "Perfect warm-up hole — and you don't need driver. 3H to 215 leaves ~95 in. That's a smooth PW. The fairway is extremely generous, so aim right-center and let your draw bring it back. The green is only 26 yards deep, fronted by water and backed by a waterfall/pond. Land it center of the green — don't go pin-hunting. This is one of your 4+ par chances today. Take it.",
+    missLeft: "Hook goes left but the fairway is huge. You're still in the short grass with a wedge in. No damage.",
+    missRight: "Slice puts you right side, still wedge distance. Easy recovery.",
+    flop: "Chunked 3H leaves you 150-ish out. Hit 7-iron to front-center of green. Water fronts it, so make sure you carry.",
+    scoring: "BOGEY IS THE BASELINE. But this is a par hole for you — 3H off the tee, wedge on, two-putt. If you get a par here, you're banking one toward 85.",
+    danger: "DO NOT go long. Water behind the green eats balls. Front-center always. Also — first tee nerves are real. Take a deep breath, make a smooth 3H swing, and ease into the round.",
+    target: "Par chance"
+  },
+  {
+    num: 2, par: 5, white: 450, hdcp: 15, name: "Downwind Birdie",
+    teeClub: "3-Hybrid", parChance: true,
+    strategy: "Reachable par 5 downwind, and your easiest par/birdie chance of the day. 3H to 215, leaving ~235. You're not reaching in two — that's fine. Hit another 3H to ~25 yards out, or lay up to exactly 125 for your PW. The fairway slopes left to right, so your draw fights the slope perfectly. Watch for the pot bunker at ~100 yards if laying up.",
+    missLeft: "Hook goes left rough. Clear line to lay up. The fairway tilts right, so you probably just got extra roll.",
+    missRight: "Slice into right rough. Lay up to 125 with whatever iron gets you there. Don't be a hero.",
+    flop: "At 450, even a bad tee shot leaves three-shot territory. Get to 125, hit PW. Simple.",
+    scoring: "THREE-SHOT PAR 5. That's the mindset. 3H, 3H or layup iron, PW. If you execute three decent shots, par is very real. Birdie is a bonus. This hole should NEVER be worse than bogey.",
+    danger: "Pot bunker at ~100 yards. Pick your layup: 125 or 80, never 100. Don't get greedy trying to reach in two.",
+    target: "Par chance"
+  },
+  {
+    num: 3, par: 4, white: 336, hdcp: 13, name: "Precision Test",
+    teeClub: "3-Hybrid", parChance: true,
+    strategy: "Short par 4 — 3H is perfect here. Two big bunkers line the right side, and the fairway slopes right toward them. Your draw fights that slope. 3H to 215 leaves ~120 in — PW territory. Aim right-center, trust the draw. If it draws, you're center-fairway with a wedge. If it stays straight, you're right-center with a wedge. Both are great.",
+    missLeft: "Hook goes left — that's the safe side. Slightly longer approach but clean lie.",
+    missRight: "Slice rides the rightward slope into those two fairway bunkers. Get out sideways and wedge on. Accept bogey.",
+    flop: "At 336, even a topped shot is in range. Play to your favorite distance.",
+    scoring: "BOGEY BASELINE, but par is very gettable. 3H + PW is a simple formula. The green slopes, so below the hole matters.",
+    danger: "Don't go long — collection areas behind the green are tough. Front-center of the green.",
+    target: "Par chance"
+  },
+  {
+    num: 4, par: 3, white: 137, hdcp: 17, name: "Downhill Beauty",
+    teeClub: "PW", parChance: true,
+    strategy: "Easiest hole on the course. 137 yards downhill with wind behind — plays 120-125. Your PW carries 125, so this is your club. The green is 43 YARDS DEEP. That's massive. Just find the putting surface. Aim right-center, let the draw work it toward the middle. This is a free par.",
+    missLeft: "Hook pulls it left. Chip back, try to save par. Bogey at worst.",
+    missRight: "Sand right and deep. Bunker shot to center, take your bogey.",
+    flop: "Chunk leaves a straightforward uphill chip to a deep green. Up-and-down for par is doable.",
+    scoring: "PW to a 43-yard-deep green. If you don't make par here, something went wrong. This is your easiest par of the day. TAKE IT.",
+    danger: "Back-right pin is a sucker pin. Don't chase it. Center-green, two-putt, walk off with par.",
+    target: "Par chance"
+  },
+  {
+    num: 5, par: 4, white: 397, hdcp: 3, name: "Trump's Corner Begins",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "Welcome to Trump's Corner. #3 handicap hole, 397 yards. 3H to 215 leaves ~182 — that's another 3H into the green. It's a big ask, but the alternative (driver) brings that massive 70-yard left bunker into play where your hook lives. With 3H off the tee, you're in the fairway. From there, hit 3H toward the green — if it comes up short, chip on and take your bogey.",
+    missLeft: "HIGH HOOK ALERT even with 3H. That left bunker is huge. If you're in it, play out sideways. Don't compound the error.",
+    missRight: "Right rough, line to the green. Consider laying up to 125 if the lie is bad.",
+    flop: "Chunked 3H leaves 200+. Just advance it down the fairway. Get to wedge range.",
+    scoring: "BOGEY IS SUCCESS. This is a hard hole. Two 3-hybrids and a chip/putt for bogey is a great result.",
+    danger: "This starts Trump's Corner (5-9). Mental game matters most here. Accept bogeys. Avoid doubles.",
+    target: "Bogey (par = bonus)"
+  },
+  {
+    num: 6, par: 4, white: 397, hdcp: 5, name: "The Squeeze",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "Slight dogleg left, bunkers pinching both sides. 3H to 215 leaves 180 in. Alternative play: 3H off the tee, then 7-iron to lay up to ~20 yards short of the green, then chip on. That's a high-percentage bogey and a possible par if you chip it close.",
+    missLeft: "Hooked through the dogleg into left bunkers. Play out to fairway, wedge on.",
+    missRight: "Sand right, but more forgiving. Advance toward the green.",
+    flop: "Bad tee shot = long hole. Get to wedge range in two more shots. Limit damage to double.",
+    scoring: "BOGEY IS THE PLAN. 3H off the tee, 7-iron toward the green, chip on, two-putt. That's 5.",
+    danger: "The dogleg left tempts a big draw. Control it. A smooth 3H that stays in the fairway beats a hooked 3H that goes through it.",
+    target: "Bogey"
+  },
+  {
+    num: 7, par: 5, white: 512, hdcp: 9, name: "The Long One",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "Long par 5, 512 yards. 3H to 215, another 3H to get to ~80 yards from green, PW or chip on, two-putt. A spine runs through the fairway creating uneven lies. Watch for the 100-yard trap on the right.",
+    missLeft: "Left rough is playable. Advance toward your layup number.",
+    missRight: "100-yard bunker on the right. If your layup is near it, adjust to 140 instead.",
+    flop: "Bad swing just means an extra shot. Keep moving forward.",
+    scoring: "BOGEY IS PAR FOR YOU HERE. But actually: 3H, 3H, PW from 80 = on in three. That's par! Doable if you keep it in the fairway.",
+    danger: "The spine creates sidehill lies. Don't rush your second shot.",
+    target: "Bogey (par possible)"
+  },
+  {
+    num: 8, par: 3, white: 183, hdcp: 7, name: "Lakeside Beast",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "THE MOST DANGEROUS HOLE FOR YOUR GAME. 183 yards with a lake running the ENTIRE left side. Your draw naturally moves toward the water. AIM RIGHT. Aim at the right bunker. If you hit it in the right bunker, that's a WIN compared to the lake. Choke down on 3H. Green is 50 yards deep.",
+    missLeft: "HIGH HOOK INTO WATER. Nightmare scenario. Drop zone, chip on, two-putt = double at best. Aim even further right if you feel tension.",
+    missRight: "PERFECT MISS. Bunker or rough right = easy bogey, possible par save. A slice here is a gift.",
+    flop: "Short right = manageable. Short left = water. Set up aiming right so even a chunk goes safe.",
+    scoring: "BOGEY IS A WIN. If you walk off with a 4, celebrate. The goal is avoid the lake. Right side, right side, right side.",
+    danger: "YOUR DRAW WANTS TO FIND THE LAKE. This is the one hole where your stock shape works directly against you. Aim at the right bunker.",
+    target: "Bogey (par = bonus)"
+  },
+  {
+    num: 9, par: 4, white: 422, hdcp: 1, name: "The Monster",
+    teeClub: "Driver", parChance: false,
+    strategy: "Hardest hole, one of two driver holes. 422 yards, 120-yard bunker down the entire left. The hole shape suits your draw, but DON'T overcook it. Aim right-center. Driver to 250 leaves 172 for 3H approach. If it doesn't reach, chip on for bogey.",
+    missLeft: "Hook into the 120-yard bunker. Play out sideways. Accept double and move to the back nine.",
+    missRight: "Slice into right rough. Long approach but you have a shot. Probably laying up to wedge range.",
+    flop: "Bad drive = 200+ in. Advance twice, try for bogey or double.",
+    scoring: "BOGEY IS A GREAT SCORE. Double is acceptable. You're done with Trump's Corner after this. Just survive.",
+    danger: "120-yard left bunker catches draws. Lake left of green catches approaches. Start RIGHT.",
+    target: "Bogey"
+  },
+  {
+    num: 10, par: 4, white: 280, hdcp: 10, name: "The Quirky One",
+    teeClub: "7-Iron", parChance: true,
+    strategy: "FREEDOM. Trump's Corner is over. Short dogleg left, only 280 yards. Ocean cliffs are left. Hit 7-iron to 160 leaves ~120 in for PW. Deep breath, 7-iron, wedge, putt. The back nine is friendlier — go get your pars here.",
+    missLeft: "OCEAN CLIFFS LEFT. 7-iron probably doesn't reach the trouble, but aim center-right to be safe.",
+    missRight: "Safe. Slightly longer approach from flat ground. Still easy PW.",
+    flop: "Chunked 7-iron stays short of the barranca. No drama.",
+    scoring: "PAR HOLE. 7-iron + PW is your bread and butter. If you took bogeys through Trump's Corner, this is where you claw back.",
+    danger: "DO NOT try to drive this green. 7-iron is the play. Smart = par. Hero = lost ball.",
+    target: "Par chance"
+  },
+  {
+    num: 11, par: 3, white: 187, hdcp: 8, name: "Shallow Shelf",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "187 yards, green is only 20 paces deep. 3H is the club. Green is wide, so lateral room. Aim center-right, let draw bring it to the middle. The ball needs to LAND on the green, not bounce through. If between clubs, take the SHORTER one.",
+    missLeft: "Hook goes left. Chip from fringe. Manageable bogey.",
+    missRight: "Chip from right side. Also manageable. A slice isn't bad here.",
+    flop: "Short = front bunkers. Sand shot to middle of green. Bogey.",
+    scoring: "BOGEY IS FINE. The shallow green makes par hard. Find the surface, two-putt, move on.",
+    danger: "Going LONG is death. Nothing behind this green. Take less club if unsure.",
+    target: "Bogey"
+  },
+  {
+    num: 12, par: 5, white: 475, hdcp: 12, name: "Roller Coaster",
+    teeClub: "3-Hybrid", parChance: true,
+    strategy: "Shortest par 5, plays downwind. Same formula as #2 — three good shots = par. 3H to 215, another 3H or iron to set up 125 out, PW on. Fairway bunker is down the LEFT where your hook goes. Aim right-center. Green is multi-tiered and wild.",
+    missLeft: "Fairway bunker left catches hook. Lay up from sand to wedge range.",
+    missRight: "Right rough is fine. Advance or lay up comfortably.",
+    flop: "Three-shot hole anyway. Get to 125 and hit PW.",
+    scoring: "PAR IS VERY REAL. Three solid shots + PW = on in regulation. One of your par chances — take it seriously.",
+    danger: "Multi-tiered green creates three-putts. Read the tiers. Get first putt to the right level.",
+    target: "Par chance"
+  },
+  {
+    num: 13, par: 4, white: 385, hdcp: 4, name: "Blind Bully",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "Blind tee shot to the narrowest fairway. 3H to 215 leaves ~170 in. Conservative play: 3H off tee, 7-iron toward green (leaves ~10 yards short), chip on, two-putt for bogey. Fairway is non-negotiable.",
+    missLeft: "Rugged scrub. Pitch back to fairway. Bogey or double.",
+    missRight: "Also rugged. Get back to the fairway.",
+    flop: "Bad tee shot = long hole. Limit damage to double.",
+    scoring: "BOGEY IS THE TARGET. Two safe irons near the green, chip on, two-putt. That's 5. Totally fine.",
+    danger: "Narrowest fairway on the course. Trust 3H, aim dead center, smooth swing. No hero swings.",
+    target: "Bogey"
+  },
+  {
+    num: 14, par: 5, white: 459, hdcp: 6, name: "The S-Curve",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "S-shaped par 5, barrancas BOTH sides. 3H to 215, then critical layup: barranca sliver at ~115 yards, so lay up to 125-130. PW on. Three smart shots = par possible, bogey target.",
+    missLeft: "Barranca left. Ball could be lost. Hook is dangerous — aim right-center.",
+    missRight: "Barranca right too, but further out. Right rough is survivable.",
+    flop: "Three-shot hole. Advance and get to PW distance.",
+    scoring: "BOGEY TARGET, PAR POSSIBLE. Three controlled shots, PW on, two-putt.",
+    danger: "Barrancas BOTH sides. The 115-yard sliver is the hidden trap. Don't go long — wrap-around bunker behind.",
+    target: "Bogey (par possible)"
+  },
+  {
+    num: 15, par: 3, white: 131, hdcp: 16, name: "The Short One",
+    teeClub: "PW", parChance: true,
+    strategy: "Shortest hole, 131 yards. Another FREE PAR. PW carries 125, add a little extra. C-shaped bunker around the green, pot bunker right. Aim right-center, let draw work to the middle. At your handicap, par on 131 yards is expected. Go get it.",
+    missLeft: "C-shaped bunker. Sand shot to center. Bogey at worst.",
+    missRight: "Pot bunker right with steep face. Blast out, take bogey. Draw should keep you away.",
+    flop: "Short = front of C-shaped bunker. Get on green and two-putt.",
+    scoring: "PAR. PERIOD. 131 yards with a wedge. You hit this every day at the range.",
+    danger: "Pot bunker right is tough. Don't chase a right pin. Center-green, two-putt, par.",
+    target: "Par chance"
+  },
+  {
+    num: 16, par: 4, white: 278, hdcp: 18, name: "Risk-Reward Dogleg",
+    teeClub: "7-Iron", parChance: true,
+    strategy: "Easiest handicap hole. Short dogleg left, 278 yards. Lake left from 100 yards in. Hit 7-iron to 160, leaving ~118 for PW. Same formula as #10. Driver and 3H are NOT in your hand here.",
+    missLeft: "LAKE. Draw + dogleg left = danger. 7-iron keeps you short of where the lake starts.",
+    missRight: "Safe side. Right rough with clear approach. Slice is fine.",
+    flop: "At 278, any shot leaves a straightforward approach.",
+    scoring: "PAR HOLE. 7-iron + PW is your most comfortable combo. Easiest par on the back nine. Bank it.",
+    danger: "Lake left. Do NOT hit more than 7-iron off the tee. Draw + longer club + dogleg = water ball.",
+    target: "Par chance"
+  },
+  {
+    num: 17, par: 3, white: 181, hdcp: 14, name: "Waterfall Signature",
+    teeClub: "3-Hybrid", parChance: false,
+    strategy: "Signature hole, 181 into breeze. Waterfall behind is gorgeous — enjoy it AFTER you hit. Four deep bunkers line the LEFT side. Your draw wants to go there. Aim center-right. If draw brings it to center, perfect. If it stays right, chip on for bogey.",
+    missLeft: "Deep bunkers LEFT, well below green. Draw overdone = hook into the worst bunkers on the course. Aim further right.",
+    missRight: "Short right = chip with green toward you. Easy bogey, possible par.",
+    flop: "Short = fronting area or bunkers. Take bogey, move to 18.",
+    scoring: "BOGEY IS THE PLAN. Find the green = amazing par. Miss right = easy bogey. Either way, fine.",
+    danger: "Left bunkers are below green surface. Your draw feeds toward them. Aim RIGHT of where you think you should.",
+    target: "Bogey"
+  },
+  {
+    num: 18, par: 4, white: 362, hdcp: 2, name: "The Finisher",
+    teeClub: "Driver", parChance: false,
+    strategy: "The famous 18th — second driver hole. 362 uphill into wind, 14+ bunkers. Plays 400+. Aim far right bunker, let draw bring it to center. Driver to 250 leaves ~112 but uphill + wind = PW or 7-iron. Green is big, slopes back to front.",
+    missLeft: "Bunkers left. Play out, advance. Bogey is fine on the last hole.",
+    missRight: "Bunkers right. Approach still manageable from right side.",
+    flop: "Bad drive still leaves you in range with two more shots.",
+    scoring: "BOGEY CLOSES THE ROUND. If you need par, the fairway is generous enough. But don't press. Smooth driver, comfortable wedge, two-putt. Close it out.",
+    danger: "14 bunkers everywhere but fairway IS wide. Biggest danger is pressing. Play your game. Finish strong.",
+    target: "Bogey (par possible)"
+  }
+];
+
+const FRONT = HOLES.slice(0, 9);
+const BACK = HOLES.slice(9, 18);
+
+function CaddieGuide() {
+  const [selectedHole, setSelectedHole] = useState(0);
+  const [showMissPanel, setShowMissPanel] = useState(null);
+  const [scores, setScores] = useState(Array(18).fill(null));
+  const hole = HOLES[selectedHole];
+
+  const frontPar = FRONT.reduce((s, h) => s + h.par, 0);
+  const backPar = BACK.reduce((s, h) => s + h.par, 0);
+  const totalPar = frontPar + backPar;
+  const frontYds = FRONT.reduce((s, h) => s + h.white, 0);
+  const backYds = BACK.reduce((s, h) => s + h.white, 0);
+  const parChances = HOLES.filter(h => h.parChance).length;
+  const bogeyHoles = HOLES.filter(h => !h.parChance).length;
+
+  const holesPlayed = scores.filter(s => s !== null).length;
+  const currentTotal = scores.reduce((s, v) => s + (v || 0), 0);
+  const currentOverPar = scores.reduce((s, v, i) => {
+    if (v === null) return s;
+    return s + (v - HOLES[i].par);
+  }, 0);
+  const projectedFinal = currentTotal + HOLES.filter((_, i) => scores[i] === null).reduce((s, h) => s + h.par + 1, 0);
+
+  const recordScore = (delta) => {
+    const newScores = [...scores];
+    const val = hole.par + delta;
+    newScores[selectedHole] = newScores[selectedHole] === val ? null : val;
+    setScores(newScores);
+  };
+
+  const scoreLabel = (d) => d <= -2 ? "Eagle" : d === -1 ? "Birdie" : d === 0 ? "Par" : d === 1 ? "Bogey" : d === 2 ? "Dbl" : d === 3 ? "Trpl" : `+${d}`;
+  const scoreColor = (d) => d <= -1 ? "#4CAF50" : d === 0 ? "#c4a44e" : d === 1 ? "#a09880" : d === 2 ? "#d4756b" : "#cc4444";
+
+  const s = (obj) => obj; // style passthrough
+
+  return React.createElement('div', {style: s({fontFamily: "'Georgia', 'Times New Roman', serif", background: "linear-gradient(135deg, #1a2e1a 0%, #0d1f0d 50%, #1a2e1a 100%)", color: "#e8e0d0", minHeight: "100vh"})},
+
+    // Header
+    React.createElement('div', {style: s({background: "linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 100%)", borderBottom: "2px solid #c4a44e", padding: "24px 20px 16px", textAlign: "center"})},
+      React.createElement('div', {style: s({fontSize: 11, letterSpacing: 4, textTransform: "uppercase", color: "#c4a44e", marginBottom: 6})}, "Your Caddie's Playbook"),
+      React.createElement('h1', {style: s({fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: "#fff", letterSpacing: 1})}, "Trump National — Los Angeles"),
+      React.createElement('div', {style: s({fontSize: 13, color: "#a09880", marginBottom: 8})}, `White Tees · ${frontYds+backYds} yds · Par ${totalPar} · Slope 130 · Rating 69.9`),
+      React.createElement('div', {style: s({display: "flex", justifyContent: "center", gap: 24, fontSize: 12, color: "#c4a44e"})},
+        React.createElement('span', null, "Thu Mar 19 · 12:30 PM"),
+        React.createElement('span', null, "79°F · Sunny · Low Wind")
+      )
+    ),
+
+    // Scoring Targets
+    React.createElement('div', {style: s({display: "flex", justifyContent: "center", gap: 12, padding: "12px 16px", background: "rgba(0,0,0,0.3)", borderBottom: "1px solid rgba(196,164,78,0.2)", flexWrap: "wrap"})},
+      [{label:"Dream",score:85,emoji:"🌟"},{label:"Goal",score:89,emoji:"🎯"},{label:"Floor",score:99,emoji:"🛡️"}].map(t =>
+        React.createElement('div', {key: t.label, style: s({background: "rgba(196,164,78,0.08)", border: "1px solid rgba(196,164,78,0.25)", borderRadius: 8, padding: "6px 16px", textAlign: "center", fontSize: 12, minWidth: 80})},
+          React.createElement('div', {style: s({color: "#a09880"})}, `${t.emoji} ${t.label}`),
+          React.createElement('div', {style: s({color: "#c4a44e", fontWeight: 700, fontSize: 18})}, t.score),
+          React.createElement('div', {style: s({color: "#666", fontSize: 10})}, `+${t.score - totalPar}`)
+        )
+      )
+    ),
+
+    // Strategy bar
+    React.createElement('div', {style: s({display: "flex", justifyContent: "center", gap: 16, padding: "10px 16px", background: "rgba(0,0,0,0.2)", borderBottom: "1px solid rgba(196,164,78,0.15)", fontSize: 11, flexWrap: "wrap"})},
+      React.createElement('span', {style:{color:"#6cb86c"}}, `● ${parChances} par chances`),
+      React.createElement('span', {style:{color:"#a09880"}}, `● ${bogeyHoles} bogey holes`),
+      React.createElement('span', {style:{color:"#d4756b"}}, "● Driver: only #9, #18")
+    ),
+
+    // Shot shape
+    React.createElement('div', {style: s({display:"flex",justifyContent:"center",gap:12,padding:"8px 16px",background:"rgba(0,0,0,0.15)",borderBottom:"1px solid rgba(196,164,78,0.1)",fontSize:11,flexWrap:"wrap"})},
+      React.createElement('span', {style:{color:"#6cb86c"}}, "Stock: Draw (aim right → works left)"),
+      React.createElement('span', {style:{color:"#d4756b"}}, "Danger: High hook (left) / Slice (right)")
+    ),
+
+    // Live score
+    holesPlayed > 0 && React.createElement('div', {style: s({textAlign:"center",padding:"10px 16px",background:currentOverPar<=14?"rgba(46,139,87,0.1)":currentOverPar<=18?"rgba(196,164,78,0.1)":"rgba(180,50,50,0.1)",borderBottom:"1px solid rgba(196,164,78,0.15)"})},
+      React.createElement('span', {style:{fontSize:12,color:"#a09880"}}, `Through ${holesPlayed}: `),
+      React.createElement('span', {style:{fontSize:18,fontWeight:700,color:"#c4a44e"}}, `${currentTotal} (${currentOverPar>0?"+":""}${currentOverPar})`),
+      React.createElement('span', {style:{fontSize:12,color:"#a09880"}}, " · Pace for "),
+      React.createElement('span', {style:{fontSize:14,fontWeight:700,color:projectedFinal<=85?"#4CAF50":projectedFinal<=89?"#c4a44e":projectedFinal<=99?"#a09880":"#d4756b"}}, projectedFinal),
+      React.createElement('span', {style:{fontSize:12,color:"#a09880"}}, " (bogey pace)")
+    ),
+
+    // Hole selector
+    React.createElement('div', {style: s({padding: "14px 12px 6px"})},
+      React.createElement('div', {style: s({display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap",marginBottom:4})},
+        React.createElement('div', {style:{width:"100%",textAlign:"center",fontSize:11,color:"#a09880",marginBottom:4,letterSpacing:2}}, "FRONT 9"),
+        ...FRONT.map((h, i) => {
+          const scored = scores[i] !== null;
+          const overPar = scored ? scores[i] - h.par : null;
+          return React.createElement('button', {key: h.num, onClick: () => { setSelectedHole(i); setShowMissPanel(null); }, style: s({
+            width:34,height:34,borderRadius:6,
+            border: selectedHole===i ? "2px solid #c4a44e" : scored ? `2px solid ${scoreColor(overPar)}44` : "1px solid rgba(196,164,78,0.2)",
+            background: selectedHole===i ? "rgba(196,164,78,0.25)" : scored ? `${scoreColor(overPar)}15` : "rgba(0,0,0,0.3)",
+            color: selectedHole===i ? "#c4a44e" : scored ? scoreColor(overPar) : "#a09880",
+            fontWeight: selectedHole===i||scored ? 700 : 400, fontSize: scored?12:14, cursor:"pointer", fontFamily:"inherit"
+          })}, scored ? scores[i] : h.num);
+        })
+      ),
+      React.createElement('div', {style: s({display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap"})},
+        React.createElement('div', {style:{width:"100%",textAlign:"center",fontSize:11,color:"#a09880",marginBottom:4,letterSpacing:2}}, "BACK 9"),
+        ...BACK.map((h, i) => {
+          const idx = i+9;
+          const scored = scores[idx] !== null;
+          const overPar = scored ? scores[idx] - h.par : null;
+          return React.createElement('button', {key: h.num, onClick: () => { setSelectedHole(idx); setShowMissPanel(null); }, style: s({
+            width:34,height:34,borderRadius:6,
+            border: selectedHole===idx ? "2px solid #c4a44e" : scored ? `2px solid ${scoreColor(overPar)}44` : "1px solid rgba(196,164,78,0.2)",
+            background: selectedHole===idx ? "rgba(196,164,78,0.25)" : scored ? `${scoreColor(overPar)}15` : "rgba(0,0,0,0.3)",
+            color: selectedHole===idx ? "#c4a44e" : scored ? scoreColor(overPar) : "#a09880",
+            fontWeight: selectedHole===idx||scored ? 700 : 400, fontSize: scored?12:14, cursor:"pointer", fontFamily:"inherit"
+          })}, scored ? scores[idx] : h.num);
+        })
+      )
+    ),
+
+    // Hole detail
+    React.createElement('div', {style: s({padding: "8px 16px 24px"})},
+      React.createElement('div', {style: s({background:"rgba(0,0,0,0.4)",border:"1px solid rgba(196,164,78,0.3)",borderRadius:12,overflow:"hidden"})},
+
+        // Hole header
+        React.createElement('div', {style: s({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:"1px solid rgba(196,164,78,0.15)",background:hole.parChance?"rgba(46,139,87,0.08)":"rgba(196,164,78,0.06)"})},
+          React.createElement('div', null,
+            React.createElement('div', {style:{fontSize:22,fontWeight:700,color:"#fff"}},
+              `Hole ${hole.num}`,
+              React.createElement('span', {style:{fontSize:14,fontWeight:400,color:"#a09880",marginLeft:10}}, `"${hole.name}"`)
+            ),
+            React.createElement('div', {style:{fontSize:13,color:"#a09880",marginTop:2}},
+              `HDCP ${hole.hdcp}`,
+              hole.parChance && React.createElement('span', {style:{color:"#4CAF50",marginLeft:8,fontWeight:600}}, "★ PAR CHANCE")
+            )
+          ),
+          React.createElement('div', {style:{textAlign:"right"}},
+            React.createElement('div', {style:{fontSize:28,fontWeight:700,color:"#c4a44e"}}, hole.white),
+            React.createElement('div', {style:{fontSize:12,color:"#a09880"}}, `YDS · PAR ${hole.par}`)
+          )
+        ),
+
+        // Tee club
+        React.createElement('div', {style: s({display:"flex",alignItems:"center",gap:10,padding:"12px 20px",borderBottom:"1px solid rgba(196,164,78,0.1)",background:"rgba(196,164,78,0.04)"})},
+          React.createElement('div', {style:{background:hole.teeClub==="Driver"?"#d4756b":"#c4a44e",color:hole.teeClub==="Driver"?"#fff":"#1a2e1a",fontWeight:700,fontSize:11,padding:"4px 10px",borderRadius:4,letterSpacing:1}}, "TEE CLUB"),
+          React.createElement('div', {style:{fontSize:15,fontWeight:600,color:"#fff"}},
+            hole.teeClub,
+            hole.teeClub==="Driver" && React.createElement('span', {style:{fontSize:11,color:"#d4756b",marginLeft:8}}, "(one of only 2 holes)")
+          )
+        ),
+
+        // Strategy
+        React.createElement('div', {style: s({padding:"16px 20px"})},
+          React.createElement('div', {style:{fontSize:11,letterSpacing:2,color:"#c4a44e",marginBottom:8,textTransform:"uppercase"}}, "Game Plan"),
+          React.createElement('p', {style:{fontSize:14,lineHeight:1.7,margin:0,color:"#d4ccc0"}}, hole.strategy)
+        ),
+
+        // Target
+        React.createElement('div', {style: s({margin:"0 20px",padding:"10px 16px",background:hole.parChance?"rgba(46,139,87,0.12)":"rgba(196,164,78,0.08)",border:`1px solid ${hole.parChance?"rgba(46,139,87,0.35)":"rgba(196,164,78,0.2)"}`,borderRadius:8,display:"flex",alignItems:"center",gap:10})},
+          React.createElement('span', {style:{fontSize:18}}, hole.parChance ? "🎯" : "🛡️"),
+          React.createElement('div', null,
+            React.createElement('div', {style:{fontSize:11,color:"#a09880",letterSpacing:1}}, "TARGET"),
+            React.createElement('div', {style:{fontSize:15,fontWeight:600,color:"#fff"}}, hole.target)
+          )
+        ),
+
+        // Danger
+        React.createElement('div', {style: s({margin:"12px 20px 0",padding:"10px 16px",background:"rgba(180,50,50,0.1)",border:"1px solid rgba(180,50,50,0.25)",borderRadius:8})},
+          React.createElement('div', {style:{fontSize:11,color:"#d4756b",letterSpacing:1,marginBottom:4}}, "⚠️ DANGER ZONE"),
+          React.createElement('div', {style:{fontSize:13,lineHeight:1.6,color:"#d4ccc0"}}, hole.danger)
+        ),
+
+        // Miss panels
+        React.createElement('div', {style: s({padding:"16px 20px"})},
+          React.createElement('div', {style:{fontSize:11,letterSpacing:2,color:"#c4a44e",marginBottom:10,textTransform:"uppercase"}}, "If You Miss..."),
+          React.createElement('div', {style:{display:"flex",gap:8,flexWrap:"wrap"}},
+            [{key:"left",label:"⬅️ High Hook",color:"#d4756b"},{key:"right",label:"➡️ Slice",color:"#8a7a5b"},{key:"flop",label:"⬇️ Topped/Chunked",color:"#7a7a8a"}].map(m =>
+              React.createElement('button', {key:m.key, onClick:()=>setShowMissPanel(showMissPanel===m.key?null:m.key), style:s({
+                flex:1,minWidth:90,padding:"10px 8px",borderRadius:8,
+                border:showMissPanel===m.key?`2px solid ${m.color}`:"1px solid rgba(196,164,78,0.2)",
+                background:showMissPanel===m.key?`${m.color}22`:"rgba(0,0,0,0.3)",
+                color:showMissPanel===m.key?"#fff":"#a09880",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"center"
+              })}, m.label)
+            )
+          ),
+          showMissPanel && React.createElement('div', {style:s({marginTop:10,padding:"14px 16px",background:"rgba(0,0,0,0.3)",borderRadius:8,border:"1px solid rgba(196,164,78,0.15)",fontSize:14,lineHeight:1.7,color:"#d4ccc0"})},
+            showMissPanel==="left" ? hole.missLeft : showMissPanel==="right" ? hole.missRight : hole.flop
+          )
+        ),
+
+        // Scoring
+        React.createElement('div', {style: s({padding:"0 20px 16px"})},
+          React.createElement('div', {style:{fontSize:11,letterSpacing:2,color:"#c4a44e",marginBottom:8,textTransform:"uppercase"}}, "Scoring Mindset"),
+          React.createElement('p', {style:{fontSize:14,lineHeight:1.7,margin:0,color:"#d4ccc0"}}, hole.scoring)
+        ),
+
+        // Score entry
+        React.createElement('div', {style: s({padding:"12px 20px 16px",borderTop:"1px solid rgba(196,164,78,0.1)",background:"rgba(0,0,0,0.2)"})},
+          React.createElement('div', {style:{fontSize:11,letterSpacing:2,color:"#c4a44e",marginBottom:10,textTransform:"uppercase"}}, "Record Score"),
+          React.createElement('div', {style:{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}},
+            [-2,-1,0,1,2,3,4].filter(d => hole.par+d >= 1).map(d => {
+              const val = hole.par+d;
+              const active = scores[selectedHole]===val;
+              return React.createElement('button', {key:d, onClick:()=>recordScore(d), style:s({
+                padding:"8px 12px",borderRadius:6,minWidth:44,textAlign:"center",fontFamily:"inherit",cursor:"pointer",
+                border:active?`2px solid ${scoreColor(d)}`:"1px solid rgba(196,164,78,0.2)",
+                background:active?`${scoreColor(d)}30`:"rgba(0,0,0,0.3)",
+                color:active?"#fff":"#a09880",fontWeight:active?700:400
+              })},
+                React.createElement('div', {style:{fontSize:16,fontWeight:700}}, val),
+                React.createElement('div', {style:{fontSize:9,marginTop:2}}, scoreLabel(d))
+              );
+            })
+          )
+        )
+      )
+    ),
+
+    // Pre-round talk
+    React.createElement('div', {style: s({padding:"0 16px 24px"})},
+      React.createElement('div', {style: s({background:"rgba(0,0,0,0.4)",border:"1px solid rgba(196,164,78,0.3)",borderRadius:12,padding:"20px"})},
+        React.createElement('div', {style:{fontSize:11,letterSpacing:2,color:"#c4a44e",marginBottom:12,textTransform:"uppercase",textAlign:"center"}}, "Caddie's Pre-Round Talk"),
+        React.createElement('div', {style:{fontSize:14,lineHeight:1.8,color:"#d4ccc0"}},
+          ...[ 
+            ["The game plan for 85: bogey is your par.", `You have ${parChances} realistic par chances today (#1, #2, #3, #4, #10, #12, #15, #16). Convert just 4 and bogey everything else = 85. No heroics needed. Just avoid doubles and triples.`],
+            ["3-Hybrid is your best friend.", "You're hitting 3H off the tee on 16 of 18 holes. Driver only comes out on #9 and #18. Every other hole, 3H keeps you in the fairway at 210-220. A 3H miss is recoverable. A driver miss on this course is a penalty stroke."],
+            ["Your draw is your weapon — your hook is the round-killer.", "Aim right-center, trust the draw. If it stays straight = right-center fairway. If it draws = middle. Both keep you in play. The high hook into cliffs (#10), lakes (#8, #16), bunkers (#5, #9) turns bogeys into doubles."],
+            ["Holes 5-9: survive, don't thrive.", "Hardest five holes. Target is bogey on all five (+5 through this stretch). Get through at +4, you're ahead. Don't panic with a double."],
+            ["The math for breaking 90:", "Bogey ALL 18 = 89. You don't need a single par. Just eliminate big numbers."],
+            ["Wind check:", "79°F, sunny, light winds. Ocean breeze picks up on back nine. Amplifies your draw on inland holes."]
+          ].map(([title, text], idx) =>
+            React.createElement('p', {key: idx, style:{margin: idx < 5 ? "0 0 12px" : 0}},
+              React.createElement('strong', {style:{color:"#c4a44e"}}, title + " "),
+              text
+            )
+          )
+        )
+      )
+    ),
+
+    // Footer
+    React.createElement('div', {style: s({textAlign:"center",padding:"16px",fontSize:12,color:"#5a5040",borderTop:"1px solid rgba(196,164,78,0.1)"})},
+      "Bogey is your par. Pars are your birdies. Go get that 85. 🏌️‍♂️"
+    )
+  );
+}
+
+ReactDOM.render(React.createElement(CaddieGuide), document.getElementById('root'));
+</script>
+</body>
+</html>
