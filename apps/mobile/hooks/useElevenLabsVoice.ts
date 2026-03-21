@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
@@ -57,18 +58,38 @@ export function useElevenLabsVoice(): UseElevenLabsVoiceReturn {
       await setAudioModeAsync({ playsInSilentMode: true });
       const player = createAudioPlayer({ uri });
       playerRef.current = player;
-      setIsSpeaking(true);
 
-      player.addListener('playbackStatusUpdate', (status) => {
-        if (status.didJustFinish) {
-          player.remove();
-          playerRef.current = null;
-          setIsSpeaking(false);
+      // Wait for the player to finish loading before playing
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 10000);
+
+        player.addListener('playbackStatusUpdate', (status) => {
+          if (status.isLoaded && !status.playing && !status.didJustFinish) {
+            clearTimeout(timeout);
+            resolve();
+          }
+          if (status.didJustFinish) {
+            player.remove();
+            playerRef.current = null;
+            setIsSpeaking(false);
+          }
+        });
+
+        // If already loaded (local file), resolve immediately
+        if (player.isLoaded) {
+          clearTimeout(timeout);
+          resolve();
         }
       });
 
+      setIsSpeaking(true);
       player.play();
-    } catch {
+    } catch (err) {
+      console.error('[voice] speak failed:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      if (msg.includes('503') || msg.includes('Voice unavailable')) {
+        Alert.alert('Voice Unavailable', 'ElevenLabs API key not configured on the server.');
+      }
       setIsLoading(false);
       setIsSpeaking(false);
     }
