@@ -13,6 +13,7 @@ import type { HoleStrategy } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { CADDIE_SYSTEM_PROMPT, buildPlaybookPrompt, buildCustomCoursePrompt, mergeDbDataIntoHoles } from '../lib/prompts';
+import { StreamingHoleParser } from '../lib/stream-parser';
 import { authMiddleware } from './auth';
 import type { AppEnv } from '../lib/types';
 
@@ -312,8 +313,10 @@ playbookRoutes.post('/generate-stream', async (c) => {
 
   return streamSSE(c, async (stream) => {
     try {
-      // Stream Claude response, accumulate text
-      let fullText = '';
+      const parser = new StreamingHoleParser();
+      const sortedDbHoles = [...holesResult].sort((a, b) => a.holeNumber - b.holeNumber);
+      let holeIndex = 0;
+
       const claudeStream = anthropic.messages.stream({
         model: 'claude-sonnet-4-6',
         max_tokens: 8000,
@@ -323,39 +326,40 @@ playbookRoutes.post('/generate-stream', async (c) => {
 
       for await (const event of claudeStream) {
         if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          fullText += event.delta.text;
+          const { meta, holes: newHoles } = parser.onDelta(event.delta.text);
+
+          // Emit meta as soon as all 4 fields are parsed
+          if (meta) {
+            await stream.writeSSE({ event: 'meta', data: JSON.stringify(meta) });
+          }
+
+          // Emit each hole as soon as its JSON object is complete
+          for (const leanHole of newHoles) {
+            const dbHole = sortedDbHoles[holeIndex];
+            if (dbHole) {
+              const merged = {
+                hole_number: dbHole.holeNumber,
+                yardage: (dbHole.yardages as Record<string, number>)[teeName],
+                par: dbHole.par,
+                ...leanHole,
+              };
+              await stream.writeSSE({ event: 'hole', data: JSON.stringify(merged) });
+            }
+            holeIndex++;
+          }
         }
       }
 
-      // Parse the full response
+      // Parse the full response for DB storage
+      const fullText = parser.getFullText();
       const cleaned = fullText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
       const playbookData: PlaybookResponse = JSON.parse(cleaned);
 
-      // Merge DB data into lean holes
       const mergedHoles = mergeDbDataIntoHoles(
         playbookData.holes as unknown as Array<Record<string, unknown>>,
         holesResult,
         teeName
       ) as unknown as HoleStrategy[];
-
-      // Emit meta
-      await stream.writeSSE({
-        event: 'meta',
-        data: JSON.stringify({
-          pre_round_talk: playbookData.pre_round_talk,
-          projected_score: playbookData.projected_score,
-          driver_holes: playbookData.driver_holes,
-          par_chance_holes: playbookData.par_chance_holes,
-        }),
-      });
-
-      // Emit each hole
-      for (const hole of mergedHoles) {
-        await stream.writeSSE({
-          event: 'hole',
-          data: JSON.stringify(hole),
-        });
-      }
 
       // Save to DB
       const [saved] = await db.insert(playbooks).values({
@@ -384,11 +388,7 @@ playbookRoutes.post('/generate-stream', async (c) => {
         },
       }).returning();
 
-      // Emit done with playbook ID
-      await stream.writeSSE({
-        event: 'done',
-        data: JSON.stringify({ id: saved.id }),
-      });
+      await stream.writeSSE({ event: 'done', data: JSON.stringify({ id: saved.id }) });
     } catch (err) {
       console.error('[playbook-stream] generation failed:', err);
       await stream.writeSSE({
