@@ -1,9 +1,9 @@
 import { View, Text, Pressable, TextInput } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
 import type { HoleStrategy } from '../../lib/api';
 import { buildVoiceScript } from '../../lib/voiceScript';
+import { useElevenLabsVoice } from '../../hooks/useElevenLabsVoice';
 import { Card } from '../ui/Card';
 import { SectionLabel } from '../ui/SectionLabel';
 
@@ -40,10 +40,10 @@ function scoreColor(d: number): string {
 
 export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = false, note, onNote }: HoleCardProps) {
   const [activeMiss, setActiveMiss] = useState<MissType>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [competitionRevealed, setCompetitionRevealed] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voice = useElevenLabsVoice();
 
   useEffect(() => () => { if (nextTimerRef.current) clearTimeout(nextTimerRef.current); }, []);
 
@@ -57,17 +57,10 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
   };
 
   const handleVoice = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
+    if (voice.isSpeaking) {
+      voice.stop();
     } else {
-      setIsSpeaking(true);
-      Speech.speak(buildVoiceScript(hole), {
-        rate: 0.9,
-        onDone: () => setIsSpeaking(false),
-        onStopped: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
-      });
+      voice.speak(buildVoiceScript(hole));
     }
   };
 
@@ -123,10 +116,13 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
           {/* Voice button */}
           <Pressable
             onPress={handleVoice}
+            disabled={voice.isLoading}
             className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: isSpeaking ? 'rgba(212,168,67,0.2)' : 'rgba(255,255,255,0.08)' }}
+            style={{ backgroundColor: voice.isSpeaking ? 'rgba(212,168,67,0.2)' : 'rgba(255,255,255,0.08)' }}
           >
-            <Text className="text-[20px]">{isSpeaking ? '⏹' : '🔊'}</Text>
+            <Text className="text-[20px]">
+              {voice.isLoading ? '⏳' : voice.isSpeaking ? '⏹' : '🔊'}
+            </Text>
           </Pressable>
           <View className="items-end">
             <Text className="text-[38px] text-gold" style={{ fontFamily: 'serif' }}>

@@ -1,13 +1,13 @@
 # Roadmap — AI Caddie
 
-**Last updated:** 2026-03-21
+**Last updated:** 2026-03-22
 
 ## Progress
 
-### Feature: ElevenLabs AI Voice — In Progress
-- [ ] Chunk 1: API proxy route for ElevenLabs TTS
-- [ ] Chunk 2: Mobile voice hook (fetch → temp file → playback)
-- [ ] Chunk 3: Replace expo-speech in HoleCard
+### Feature: ElevenLabs AI Voice — Complete
+- [x] Chunk 1: API proxy route for ElevenLabs TTS
+- [x] Chunk 2: Mobile voice hook (fetch → temp file → playback)
+- [x] Chunk 3: Replace expo-speech in HoleCard
 
 ### Feature: Competitive Mode — Complete
 - [x] Chunk 1: Any-course playbook via text description

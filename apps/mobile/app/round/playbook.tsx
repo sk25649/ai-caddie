@@ -1,7 +1,6 @@
 import { ScrollView, View, Text, Pressable, Alert } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import * as Speech from 'expo-speech';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useRoundStore } from '../../stores/roundStore';
@@ -46,11 +45,6 @@ export default function PlaybookScreen() {
       if (noteTimerRef.current) clearTimeout(noteTimerRef.current);
     };
   }, []);
-
-  // Stop any in-progress speech when the user switches holes
-  useEffect(() => {
-    Speech.stop();
-  }, [currentHole]);
 
   useEffect(() => {
     if (!playbook || !course) router.back();
