@@ -26,6 +26,7 @@ app.route('/courses', courseRoutes);
 app.route('/playbook', playbookRoutes);
 app.route('/rounds', roundRoutes);
 
+app.get('/', (c) => c.json({ status: 'ok' }));
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 app.get('/debug/env', (c) => c.json({
