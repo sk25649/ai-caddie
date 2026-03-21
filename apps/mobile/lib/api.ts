@@ -338,3 +338,14 @@ export async function getYardageBookHtml(playbookId: string): Promise<string> {
   const result = await api.get<{ html: string }>(`/playbook/${playbookId}/yardage-book`);
   return result.html;
 }
+
+// ============ VOICE ============
+
+export interface VoiceResponse {
+  audio: string; // base64 MP3
+  format: 'mp3';
+}
+
+export async function speakVoice(text: string): Promise<VoiceResponse> {
+  return api.post<VoiceResponse>('/voice/speak', { text }, 30000);
+}
