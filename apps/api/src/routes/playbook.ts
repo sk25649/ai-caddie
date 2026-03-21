@@ -218,3 +218,40 @@ playbookRoutes.get('/:id', async (c) => {
 
   return c.json({ data: playbook });
 });
+
+// GET /playbook/:id/yardage-book
+playbookRoutes.get('/:id/yardage-book', async (c) => {
+  const id = c.req.param('id');
+  const uuidSchema = z.string().uuid();
+  if (!uuidSchema.safeParse(id).success) {
+    return c.json({ error: 'Invalid playbook ID' }, 400);
+  }
+
+  const userId = c.get('userId') as string;
+
+  // Fetch playbook
+  const [playbook] = await db.select().from(playbooks).where(eq(playbooks.id, id));
+  if (!playbook) return c.json({ error: 'Playbook not found' }, 404);
+
+  // Fetch profile + clubs
+  const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.userId, userId));
+  if (!profile) return c.json({ error: 'Profile not found' }, 404);
+  const clubs = await db.select().from(playerClubs).where(eq(playerClubs.profileId, profile.id)).orderBy(playerClubs.sortOrder);
+
+  // Fetch course (may be null for custom courses)
+  let courseInfo: { name: string; par: number } = { name: 'Custom Course', par: 72 };
+  if (playbook.courseId) {
+    const [course] = await db.select().from(courses).where(eq(courses.id, playbook.courseId));
+    if (course) courseInfo = { name: course.name, par: course.par };
+  }
+
+  const { generateYardageBookHtml } = await import('../lib/yardage-book');
+  const html = generateYardageBookHtml(
+    playbook as Parameters<typeof generateYardageBookHtml>[0],
+    profile as Parameters<typeof generateYardageBookHtml>[1],
+    clubs as Parameters<typeof generateYardageBookHtml>[2],
+    courseInfo
+  );
+
+  return c.json({ data: { html } });
+});
