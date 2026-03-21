@@ -4,11 +4,11 @@
 
 ## Progress
 
-### Feature: Competitive Mode — Pending
+### Feature: Competitive Mode — Complete
 - [x] Chunk 1: Any-course playbook via text description
 - [x] Chunk 2: Add print-optimized fields to prompt schema
 - [x] Chunk 3: Yardage book HTML template (server-side)
-- [ ] Chunk 4: PDF export in mobile app
+- [x] Chunk 4: PDF export in mobile app
 - [x] Chunk 5: Practice round caddie notes
 - [x] Chunk 6: Competition on-course mode (Rule 4.3 compliant UI)
 
@@ -311,7 +311,7 @@
 ## Feature: Competitive Mode
 
 **Created:** 2026-03-21
-**Status:** Pending
+**Status:** Complete
 **Estimated effort:** ~6 sessions total
 
 **Goal:** Make AI Caddie genuinely useful for junior competitive golf — before, during, and after a tournament round. Deliver personalized, player-specific intelligence through the only formats that survive tour phone policies: a printed yardage book and a competition-compliant stripped-down on-course view.
@@ -671,11 +671,11 @@ Every line of the yardage book is specific to THIS player's bag, THIS player's m
    - Button shows "Generating..." with a loading state while `isPrinting` is true
 
 **Acceptance criteria:**
-- [ ] "Print Yardage Book" button is visible on the playbook screen
-- [ ] Tapping it fetches the HTML, converts to PDF via expo-print, and opens the iOS/Android share sheet
-- [ ] User can AirPrint directly to a printer, save to Files, or share to another app
-- [ ] Button shows a loading state during generation (PDF conversion takes 1-3 seconds)
-- [ ] Error state shown if the API call fails
+- [x] "Print Yardage Book" button is visible on the playbook screen
+- [x] Tapping it fetches the HTML, converts to PDF via expo-print, and opens the iOS/Android share sheet
+- [x] User can AirPrint directly to a printer, save to Files, or share to another app
+- [x] Button shows a loading state during generation (PDF conversion takes 1-3 seconds)
+- [x] Error state shown if the API call fails
 
 ---
 

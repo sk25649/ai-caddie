@@ -324,3 +324,8 @@ export async function getRounds(): Promise<RoundScore[]> {
 export async function updatePlaybookNote(playbookId: string, holeIndex: number, note: string): Promise<void> {
   await api.patch(`/playbook/${playbookId}/notes`, { holeIndex, note });
 }
+
+export async function getYardageBookHtml(playbookId: string): Promise<string> {
+  const result = await api.get<{ html: string }>(`/playbook/${playbookId}/yardage-book`);
+  return result.html;
+}

@@ -1,14 +1,16 @@
-import { ScrollView, View, Text, Pressable } from 'react-native';
+import { ScrollView, View, Text, Pressable, Alert } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { useRoundStore } from '../../stores/roundStore';
 import { HoleSelector } from '../../components/playbook/HoleSelector';
 import { HoleCard } from '../../components/playbook/HoleCard';
 import { LiveScoreBar } from '../../components/playbook/LiveScoreBar';
 import { PreRoundTalk } from '../../components/playbook/PreRoundTalk';
 import { Button } from '../../components/ui/Button';
-import { updatePlaybookNote } from '../../lib/api';
+import { updatePlaybookNote, getYardageBookHtml } from '../../lib/api';
 import type { TeeInfo } from '../../lib/api';
 
 export default function PlaybookScreen() {
@@ -24,6 +26,7 @@ export default function PlaybookScreen() {
   const setHoleNote = useRoundStore((s) => s.setHoleNote);
 
   const [preRoundOpen, setPreRoundOpen] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,6 +66,24 @@ export default function PlaybookScreen() {
 
   const handleFinishRound = () => {
     router.push('/post-round/summary');
+  };
+
+  const handlePrintYardageBook = async () => {
+    if (!playbook?.id) return;
+    setIsPrinting(true);
+    try {
+      const html = await getYardageBookHtml(playbook.id);
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `${course.name} Yardage Book`,
+        UTI: 'com.adobe.pdf',
+      });
+    } catch {
+      Alert.alert('Error', 'Could not generate yardage book. Please try again.');
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   return (
@@ -109,6 +130,17 @@ export default function PlaybookScreen() {
           <Text className="text-xs text-cream-dim">· Rule 4.3 Active</Text>
         </View>
       )}
+
+      {/* Print Yardage Book */}
+      <Pressable
+        onPress={handlePrintYardageBook}
+        disabled={isPrinting}
+        className="mx-4 mt-3 py-3 px-4 bg-black/20 border border-gold/20 rounded-xl flex-row items-center justify-center gap-2"
+      >
+        <Text className={`text-sm font-semibold ${isPrinting ? 'text-cream-dim' : 'text-gold'}`}>
+          {isPrinting ? 'Generating PDF...' : 'Print Yardage Book'}
+        </Text>
+      </Pressable>
 
       {/* Live Score */}
       <LiveScoreBar holes={holes} scores={scores} />
