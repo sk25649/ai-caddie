@@ -1,13 +1,127 @@
 # Roadmap — AI Caddie
 
-**Last updated:** 2026-03-21 (Chunk 1 complete)
+**Last updated:** 2026-03-21
 
 ## Progress
+
+### Feature: Add Course CLI — In Progress
+- [ ] Chunk 1: Extract shared seed logic + make db:seed idempotent
+- [ ] Chunk 2: seed-one-course CLI script
 
 ### Feature: Voice Caddie + Scan-First Hole Cards — Complete
 - [x] Chunk 1: Prompt schema — add aim_point, carry_target, play_bullets, terrain_note
 - [x] Chunk 2: HoleCard visual redesign — scan-first layout
 - [x] Chunk 3: Voice readout — one-tap audio caddie
+
+---
+
+## Feature: Add Course CLI
+
+**Created:** 2026-03-21
+**Status:** In Progress
+**Estimated effort:** ~15 min total
+
+**Goal:** Add any new course to the database with a single npm command — no boilerplate script needed.
+
+**Problem:** Every new course currently requires either copy-pasting `seed-classic-club.ts` (boilerplate for each course) or editing `seed-courses.ts` (which re-runs all 21 courses and crashes on existing slugs due to no conflict handling). Neither is ergonomic.
+
+**In scope:**
+- Extract shared seeding logic (prompt, types, `seedCourse()` function) to a shared util
+- Make `db:seed` idempotent — skip existing slugs instead of crashing
+- A `seed-one-course.ts` CLI script + `db:add-course` npm script
+
+**Out of scope:**
+- Admin UI for course management
+- Automatic geocoding from address (lat/lng are optional, default to 0 if omitted — weather uses fallback)
+- Bulk import from external golf APIs
+
+**Dependencies:** `ANTHROPIC_API_KEY`, `DATABASE_URL` in `.env`
+
+---
+
+### Chunk 1: Extract shared seed logic + make db:seed idempotent
+**Estimated effort:** ~10 min
+**Files to modify:**
+- `apps/api/src/scripts/seed-utils.ts` (new)
+- `apps/api/src/scripts/seed-courses.ts`
+- `apps/api/src/scripts/seed-classic-club.ts`
+
+**Depends on:** none
+
+**What to do:**
+
+1. Create `apps/api/src/scripts/seed-utils.ts` with:
+   - The shared `COURSE_INTEL_PROMPT` string (move from `seed-courses.ts`)
+   - The `SeedCourseData` interface (move from `seed-courses.ts`)
+   - A `slugify(name: string): string` helper: `name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')`
+   - An exported `seedCourse(courseInfo: { name, slug, city, state, zip, lat, lng })` async function that:
+     a. Checks if a course with that slug already exists — if so, logs `→ skipped (already exists)` and returns
+     b. Calls Claude with `COURSE_INTEL_PROMPT`
+     c. Parses the JSON response
+     d. Inserts into `courses` table, then inserts all 18 holes
+
+2. Update `apps/api/src/scripts/seed-courses.ts` to:
+   - Remove the local `COURSE_INTEL_PROMPT`, `SeedCourseData`, and `seedCourse()` definitions
+   - Import `seedCourse` from `./seed-utils`
+   - Keep the `LA_COURSES` list and the `main()` loop unchanged
+
+3. Simplify `apps/api/src/scripts/seed-classic-club.ts` to:
+   - Import `seedCourse` from `./seed-utils`
+   - Call `seedCourse({ name: 'Classic Club', slug: 'classic-club', city: 'Palm Desert', state: 'CA', zip: '92211', lat: 33.7379, lng: -116.3508 })`
+   - Remove all the duplicated boilerplate
+
+**Acceptance criteria:**
+- [ ] `npm run db:seed` runs without crashing when some courses already exist (skips them)
+- [ ] `seed-classic-club.ts` is reduced to ~10 lines (just imports + one function call)
+- [ ] TypeScript compiles without errors
+
+**Key decisions:**
+- Use a `select` check before insert (not `onConflictDoNothing`) — this gives a clear "already exists" log message rather than silent no-op, which is helpful when debugging seeding issues
+
+---
+
+### Chunk 2: seed-one-course CLI script
+**Estimated effort:** ~5 min
+**Files to modify:**
+- `apps/api/src/scripts/seed-one-course.ts` (new)
+- `apps/api/package.json`
+
+**Depends on:** Chunk 1
+
+**What to do:**
+
+1. Create `apps/api/src/scripts/seed-one-course.ts`:
+   - Parse CLI args from `process.argv` — support `--name`, `--city`, `--state`, `--zip`, `--lat` (optional), `--lng` (optional)
+   - Auto-derive `slug` from `name` using the `slugify()` helper from `seed-utils`
+   - Validate that `--name`, `--city`, `--state`, `--zip` are all provided — print usage and exit if not
+   - Call `seedCourse()` from `seed-utils`
+   - `process.exit(0)` on success, `process.exit(1)` on error
+
+   Example usage:
+   ```
+   npm run db:add-course -- --name "Pebble Beach Golf Links" --city "Pebble Beach" --state CA --zip 93953 --lat 36.5684 --lng -121.9476
+   ```
+   Minimal usage (no lat/lng — weather will use fallback):
+   ```
+   npm run db:add-course -- --name "Riviera Country Club" --city "Pacific Palisades" --state CA --zip 90272
+   ```
+
+2. Add to `apps/api/package.json` scripts:
+   ```json
+   "db:add-course": "tsx --env-file=.env src/scripts/seed-one-course.ts"
+   ```
+
+**Acceptance criteria:**
+- [ ] `npm run db:add-course -- --name "..." --city "..." --state CA --zip 12345` adds a new course to the DB and logs success
+- [ ] Running it again for the same course prints "already exists" and exits cleanly (no crash)
+- [ ] Missing required args prints a usage message and exits with code 1
+- [ ] TypeScript compiles without errors
+
+---
+
+**Risks & Unknowns:**
+- Claude's knowledge of obscure/newer courses may be incomplete — the seed data quality depends on how well Claude knows the course. For very private or obscure clubs, the hole-by-hole intel may be generic. No mitigation planned (acceptable for MVP).
+- lat/lng defaulting to 0 means weather fetches for courses without coordinates will return data for a point in the ocean off Africa — the fetch will succeed but the data will be wrong. The playbook still works because weather failure is non-fatal. Add a console warning in `seedCourse` when lat/lng are 0 so the operator knows to update them.
 
 ---
 
