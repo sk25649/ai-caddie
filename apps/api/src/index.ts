@@ -2,6 +2,8 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { db } from './db';
 import { authRoutes } from './routes/auth';
 import { profileRoutes } from './routes/profile';
 import { courseRoutes } from './routes/courses';
@@ -28,5 +30,16 @@ app.route('/rounds', roundRoutes);
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 const port = parseInt(process.env.PORT || '3000');
-serve({ fetch: app.fetch, port });
-console.log(`AI Caddie API running on port ${port}`);
+
+async function start() {
+  try {
+    await migrate(db, { migrationsFolder: './drizzle' });
+    console.log('Migrations applied');
+  } catch (err) {
+    console.error('Migration error (continuing):', err);
+  }
+  serve({ fetch: app.fetch, port });
+  console.log(`AI Caddie API running on port ${port}`);
+}
+
+start();
