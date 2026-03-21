@@ -28,6 +28,14 @@ app.route('/rounds', roundRoutes);
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
+app.get('/debug/env', (c) => c.json({
+  DATABASE_URL: process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':***@') : 'NOT SET',
+  JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'NOT SET',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? 'SET' : 'NOT SET',
+  PORT: process.env.PORT ?? 'not set (using 3000)',
+  NODE_ENV: process.env.NODE_ENV ?? 'not set',
+}));
+
 const port = parseInt(process.env.PORT || '3000');
 
 function start() {
