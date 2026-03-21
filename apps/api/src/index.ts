@@ -49,7 +49,11 @@ app.get('/debug/env', (c) => c.json({
 const port = parseInt(process.env.PORT || '3000');
 
 async function start() {
-  // Test DB connection at startup so we can see the error in logs
+  // Start server first — always, regardless of DB
+  serve({ fetch: app.fetch, port, hostname: '0.0.0.0' });
+  console.log(`AI Caddie API running on port ${port}`);
+
+  // Test DB connection after server is up (non-blocking)
   console.log('[DB] DATABASE_PUBLIC_URL:', process.env.DATABASE_PUBLIC_URL ? process.env.DATABASE_PUBLIC_URL.replace(/:([^:@]+)@/, ':***@') : 'NOT SET');
   console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':***@') : 'NOT SET');
   try {
@@ -58,9 +62,6 @@ async function start() {
   } catch (err) {
     console.error('[DB] Connection FAILED:', err);
   }
-
-  serve({ fetch: app.fetch, port, hostname: '0.0.0.0' });
-  console.log(`AI Caddie API running on port ${port}`);
 }
 
 start();
