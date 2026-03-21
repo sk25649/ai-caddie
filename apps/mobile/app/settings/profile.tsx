@@ -172,6 +172,7 @@ export default function ProfileSettingsScreen() {
       <Button title="Save Changes" onPress={handleSave} loading={updateProfile.isPending} className="mt-2" />
 
       <View className="mt-6 mb-10">
+        <Button title="View Pricing" onPress={() => router.push('/settings/pricing')} variant="secondary" className="mb-3" />
         <Button title="Edit Bag" onPress={() => router.push('/onboarding/bag')} variant="secondary" className="mb-3" />
         <Button title="Log Out" onPress={handleLogout} variant="danger" />
       </View>
