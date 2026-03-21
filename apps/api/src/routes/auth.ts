@@ -123,16 +123,22 @@ authRoutes.post('/apple', async (c) => {
 
   const { appleId, email } = parsed.data;
 
-  let [user] = await db.select().from(users).where(eq(users.appleId, appleId));
+  let user: typeof users.$inferSelect | undefined;
+  try {
+    [user] = await db.select().from(users).where(eq(users.appleId, appleId));
+  } catch (err) {
+    console.error('[apple] DB query failed:', err);
+    return c.json({ error: 'Database error', detail: String(err) }, 500);
+  }
 
   if (!user) {
-    [user] = await db
-      .insert(users)
-      .values({ appleId, email })
-      .returning();
-
-    // Create empty profile
-    await db.insert(playerProfiles).values({ userId: user.id });
+    try {
+      [user] = await db.insert(users).values({ appleId, email }).returning();
+      await db.insert(playerProfiles).values({ userId: user.id });
+    } catch (err) {
+      console.error('[apple] DB insert failed:', err);
+      return c.json({ error: 'Database error', detail: String(err) }, 500);
+    }
   }
 
   const token = await createToken(user.id);
