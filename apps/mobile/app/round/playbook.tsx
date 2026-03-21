@@ -11,6 +11,7 @@ import { PreRoundTalk } from '../../components/playbook/PreRoundTalk';
 import { Button } from '../../components/ui/Button';
 import { updatePlaybookNote, getYardageBookHtml } from '../../lib/api';
 import type { TeeInfo } from '../../lib/api';
+import type { TrustLoopData } from '../../components/playbook/TrustLoop';
 
 export default function PlaybookScreen() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function PlaybookScreen() {
 
   const [preRoundOpen, setPreRoundOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [trustFeedback, setTrustFeedback] = useState<TrustLoopData[]>([]);
 
   const isStreaming = streamingStatus === 'streaming';
 
@@ -45,6 +47,13 @@ export default function PlaybookScreen() {
         updatePlaybookNote(playbook.id, holeIndex, note).catch(() => {});
       }
     }, 800);
+  };
+
+  const handleTrustFeedback = (feedback: TrustLoopData) => {
+    setTrustFeedback((prev) => {
+      // Replace or add feedback for this hole
+      return [...prev.filter((f) => f.hole !== feedback.hole), feedback];
+    });
   };
 
   useEffect(() => {
@@ -217,6 +226,7 @@ export default function PlaybookScreen() {
           isCompetitionMode={isCompetitionMode}
           note={holeNotes[holesStart + currentHole]}
           onNote={(n) => handleNoteChange(holesStart + currentHole, n)}
+          onTrustFeedback={handleTrustFeedback}
         />
       ) : isStreaming ? (
         <View className="mx-4 mt-4 p-6 bg-green-card border border-gold/10 rounded-2xl items-center">
