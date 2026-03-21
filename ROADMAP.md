@@ -30,7 +30,7 @@
 - [x] Chunk 1: Lean output format — stop generating what we already have
 - [x] Chunk 2: SSE streaming endpoint with Claude streaming API
 - [x] Chunk 3: Streaming JSON parser — emit holes as they complete
-- [ ] Chunk 4: Parallel front-9 / back-9 Claude calls
+- [x] Chunk 4: Parallel front-9 / back-9 Claude calls
 - [ ] Chunk 5: Mobile streaming client + progressive playbook UI
 
 ---

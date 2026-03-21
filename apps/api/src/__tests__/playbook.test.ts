@@ -320,7 +320,17 @@ describe('POST /playbook/generate-stream — fresh generation', () => {
 
   it('emits meta, hole events, and done', async () => {
     setupStreamHappyPath();
-    mockStream.mockReturnValueOnce(makeMockClaudeStream(mockPlaybookData));
+    // Front 9 call (with meta) + Back 9 call (holes only)
+    const front9Data = {
+      ...mockPlaybookData,
+      holes: mockPlaybookData.holes.slice(0, 9),
+    };
+    const back9Data = {
+      holes: mockPlaybookData.holes.slice(9),
+    };
+    mockStream
+      .mockReturnValueOnce(makeMockClaudeStream(front9Data))
+      .mockReturnValueOnce(makeMockClaudeStream(back9Data));
     mockInsert(mockDb, [mockPlaybook]);
 
     const res = await authedStreamPost(VALID_BODY);
@@ -329,15 +339,19 @@ describe('POST /playbook/generate-stream — fresh generation', () => {
     const text = await res.text();
     const events = parseSSEEvents(text);
 
-    // First event is meta
-    expect(events[0].event).toBe('meta');
-    const meta = JSON.parse(events[0].data);
+    // Should have meta event
+    const metaEvent = events.find((e) => e.event === 'meta');
+    expect(metaEvent).toBeDefined();
+    const meta = JSON.parse(metaEvent!.data);
     expect(meta.pre_round_talk).toBe(mockPlaybookData.pre_round_talk);
     expect(meta.projected_score).toBe(mockPlaybookData.projected_score);
 
-    // Next 18 events are holes
+    // 18 hole events total (9 front + 9 back)
     const holeEvents = events.filter((e) => e.event === 'hole');
     expect(holeEvents.length).toBe(18);
+
+    // Two parallel Claude calls
+    expect(mockStream).toHaveBeenCalledTimes(2);
 
     // Last event is done
     const doneEvent = events.find((e) => e.event === 'done');
@@ -352,7 +366,8 @@ describe('POST /playbook/generate-stream — fresh generation', () => {
         next: () => Promise.reject(new Error('Claude stream failed')),
       }),
     };
-    mockStream.mockReturnValueOnce(failStream);
+    // Both calls fail
+    mockStream.mockReturnValueOnce(failStream).mockReturnValueOnce(failStream);
 
     const res = await authedStreamPost(VALID_BODY);
     const text = await res.text();

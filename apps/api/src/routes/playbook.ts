@@ -12,7 +12,7 @@ import {
 import type { HoleStrategy } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
-import { CADDIE_SYSTEM_PROMPT, buildPlaybookPrompt, buildCustomCoursePrompt, mergeDbDataIntoHoles } from '../lib/prompts';
+import { CADDIE_SYSTEM_PROMPT, CADDIE_BACK9_SYSTEM_PROMPT, buildPlaybookPrompt, buildPlaybookPromptForRange, buildCustomCoursePrompt, mergeDbDataIntoHoles } from '../lib/prompts';
 import { StreamingHoleParser } from '../lib/stream-parser';
 import { authMiddleware } from './auth';
 import type { AppEnv } from '../lib/types';
@@ -299,12 +299,16 @@ playbookRoutes.post('/generate-stream', async (c) => {
     return c.json({ error: 'Course not found' }, 404);
   }
 
-  const prompt = buildPlaybookPrompt(
-    { ...profile, clubs: clubsResult },
-    { ...course, holes: holesResult },
-    teeName,
-    forecast as { temp?: number; wind_speed?: number; wind_deg?: number; weather?: Array<{ description: string }> },
-    scoringGoal
+  const weatherData = forecast as { temp?: number; wind_speed?: number; wind_deg?: number; weather?: Array<{ description: string }> };
+  const profileWithClubs = { ...profile, clubs: clubsResult };
+  const courseWithHoles = { ...course, holes: holesResult };
+
+  // Build prompts for front 9 (with meta) and back 9 (holes only)
+  const front9Prompt = buildPlaybookPromptForRange(
+    profileWithClubs, courseWithHoles, teeName, weatherData, scoringGoal, 1, 9
+  );
+  const back9Prompt = buildPlaybookPromptForRange(
+    profileWithClubs, courseWithHoles, teeName, weatherData, scoringGoal, 10, 18
   );
 
   // Set SSE headers
@@ -313,53 +317,109 @@ playbookRoutes.post('/generate-stream', async (c) => {
 
   return streamSSE(c, async (stream) => {
     try {
-      const parser = new StreamingHoleParser();
       const sortedDbHoles = [...holesResult].sort((a, b) => a.holeNumber - b.holeNumber);
-      let holeIndex = 0;
+      const front9DbHoles = sortedDbHoles.filter((h) => h.holeNumber <= 9);
+      const back9DbHoles = sortedDbHoles.filter((h) => h.holeNumber > 9);
 
-      const claudeStream = anthropic.messages.stream({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
-        system: CADDIE_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: prompt }],
-      });
+      // Parsers for each stream
+      const front9Parser = new StreamingHoleParser();
+      const back9Parser = new StreamingHoleParser();
+      let front9HoleIdx = 0;
+      let back9HoleIdx = 0;
 
-      for await (const event of claudeStream) {
-        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          const { meta, holes: newHoles } = parser.onDelta(event.delta.text);
+      // Collected data for DB storage
+      const allLeanHoles: Array<Record<string, unknown>> = new Array(18);
+      let metaData: { pre_round_talk: string; projected_score: number; driver_holes: number[]; par_chance_holes: number[] } | null = null;
 
-          // Emit meta as soon as all 4 fields are parsed
-          if (meta) {
-            await stream.writeSSE({ event: 'meta', data: JSON.stringify(meta) });
-          }
+      // Process front 9 stream — emits meta + holes 1-9
+      async function processFront9() {
+        const claudeStream = anthropic.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 5000,
+          system: CADDIE_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: front9Prompt }],
+        });
 
-          // Emit each hole as soon as its JSON object is complete
-          for (const leanHole of newHoles) {
-            const dbHole = sortedDbHoles[holeIndex];
-            if (dbHole) {
-              const merged = {
-                hole_number: dbHole.holeNumber,
-                yardage: (dbHole.yardages as Record<string, number>)[teeName],
-                par: dbHole.par,
-                ...leanHole,
-              };
-              await stream.writeSSE({ event: 'hole', data: JSON.stringify(merged) });
+        for await (const event of claudeStream) {
+          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            const { meta, holes: newHoles } = front9Parser.onDelta(event.delta.text);
+
+            if (meta) {
+              metaData = meta;
+              await stream.writeSSE({ event: 'meta', data: JSON.stringify(meta) });
             }
-            holeIndex++;
+
+            for (const leanHole of newHoles) {
+              const dbHole = front9DbHoles[front9HoleIdx];
+              if (dbHole) {
+                const merged = {
+                  hole_number: dbHole.holeNumber,
+                  yardage: (dbHole.yardages as Record<string, number>)[teeName],
+                  par: dbHole.par,
+                  ...leanHole,
+                };
+                await stream.writeSSE({ event: 'hole', data: JSON.stringify(merged) });
+                allLeanHoles[dbHole.holeNumber - 1] = leanHole;
+              }
+              front9HoleIdx++;
+            }
           }
         }
       }
 
-      // Parse the full response for DB storage
-      const fullText = parser.getFullText();
-      const cleaned = fullText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-      const playbookData: PlaybookResponse = JSON.parse(cleaned);
+      // Process back 9 stream — emits holes 10-18 only
+      // Buffers holes and emits them after front 9 holes are done
+      const back9Buffer: Array<{ merged: Record<string, unknown>; lean: Record<string, unknown>; holeNum: number }> = [];
 
-      const mergedHoles = mergeDbDataIntoHoles(
-        playbookData.holes as unknown as Array<Record<string, unknown>>,
-        holesResult,
-        teeName
-      ) as unknown as HoleStrategy[];
+      async function processBack9() {
+        const claudeStream = anthropic.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4000,
+          system: CADDIE_BACK9_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: back9Prompt }],
+        });
+
+        for await (const event of claudeStream) {
+          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            const { holes: newHoles } = back9Parser.onDelta(event.delta.text);
+
+            for (const leanHole of newHoles) {
+              const dbHole = back9DbHoles[back9HoleIdx];
+              if (dbHole) {
+                const merged = {
+                  hole_number: dbHole.holeNumber,
+                  yardage: (dbHole.yardages as Record<string, number>)[teeName],
+                  par: dbHole.par,
+                  ...leanHole,
+                };
+                back9Buffer.push({ merged, lean: leanHole, holeNum: dbHole.holeNumber });
+              }
+              back9HoleIdx++;
+            }
+          }
+        }
+      }
+
+      // Fire both in parallel
+      await Promise.all([processFront9(), processBack9()]);
+
+      // Emit buffered back 9 holes in order
+      back9Buffer.sort((a, b) => a.holeNum - b.holeNum);
+      for (const { merged, lean, holeNum } of back9Buffer) {
+        await stream.writeSSE({ event: 'hole', data: JSON.stringify(merged) });
+        allLeanHoles[holeNum - 1] = lean;
+      }
+
+      // Build complete hole strategies for DB
+      const mergedHoles = allLeanHoles.map((lean, i) => {
+        const dbHole = sortedDbHoles[i];
+        return {
+          hole_number: dbHole.holeNumber,
+          yardage: (dbHole.yardages as Record<string, number>)[teeName],
+          par: dbHole.par,
+          ...(lean || {}),
+        };
+      }) as unknown as HoleStrategy[];
 
       // Save to DB
       const [saved] = await db.insert(playbooks).values({
@@ -370,20 +430,20 @@ playbookRoutes.post('/generate-stream', async (c) => {
         roundDate,
         teeTime,
         weatherConditions: forecast,
-        preRoundTalk: playbookData.pre_round_talk,
+        preRoundTalk: metaData?.pre_round_talk || '',
         holeStrategies: mergedHoles,
-        projectedScore: playbookData.projected_score,
-        driverHoles: playbookData.driver_holes,
-        parChanceHoles: playbookData.par_chance_holes,
+        projectedScore: metaData?.projected_score || 0,
+        driverHoles: metaData?.driver_holes || [],
+        parChanceHoles: metaData?.par_chance_holes || [],
       }).onConflictDoUpdate({
         target: [playbooks.profileId, playbooks.courseId, playbooks.teeName, playbooks.roundDate],
         set: {
           weatherConditions: forecast,
-          preRoundTalk: playbookData.pre_round_talk,
+          preRoundTalk: metaData?.pre_round_talk || '',
           holeStrategies: mergedHoles,
-          projectedScore: playbookData.projected_score,
-          driverHoles: playbookData.driver_holes,
-          parChanceHoles: playbookData.par_chance_holes,
+          projectedScore: metaData?.projected_score || 0,
+          driverHoles: metaData?.driver_holes || [],
+          parChanceHoles: metaData?.par_chance_holes || [],
           generatedAt: new Date(),
         },
       }).returning();

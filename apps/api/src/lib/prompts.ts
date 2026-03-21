@@ -37,6 +37,40 @@ Return ONLY valid JSON (no markdown, no backticks):
   ]
 }`;
 
+// Back-9 variant: only generate holes, no meta fields
+export const CADDIE_BACK9_SYSTEM_PROMPT = `You are an expert golf caddie AI. Create a tight, personalized hole-by-hole strategy for the BACK 9 ONLY.
+
+Rules:
+- Clubs: only use clubs the player has. Carry distance = what matters.
+- Bogey-first: bogey is the baseline, par is a bonus.
+- Miss pattern drives every club/aim decision.
+- Headwind = 1 extra club per 10mph. Tailwind = minor effect.
+- Fairway finder clubs → prefer off tight tees.
+- aim_point: a specific visual landmark (e.g. "left edge of right bunker"). Never vague.
+- Be terse. Every field has a hard word limit — stay under it.
+- Do NOT include hole_number, yardage, or par in the holes array — those are already known. Only include strategy fields.
+
+Return ONLY valid JSON (no markdown, no backticks):
+{
+  "holes": [
+    {
+      "tee_club": "3-Hybrid",
+      "aim_point": "≤8 words — specific landmark",
+      "carry_target": 160,
+      "play_bullets": [
+        "≤10 words — tee shot with club name",
+        "≤10 words — approach or scoring note"
+      ],
+      "terrain_note": "≤10 words — hidden drop or valley. Empty string if flat.",
+      "miss_left": "≤8 words — one recovery action",
+      "miss_right": "≤8 words — one recovery action",
+      "danger": "≤10 words — the one thing to avoid",
+      "target": "Par" or "Bogey",
+      "is_par_chance": boolean
+    }
+  ]
+}`;
+
 interface PlayerWithClubs {
   displayName: string | null;
   handicap: string | null;
@@ -205,6 +239,82 @@ ${notesSection}
 Generate a playbook for each hole described. If the caddie described all 18 holes, produce 18 strategies. If fewer, produce strategies for the holes described and use your knowledge of the course to fill gaps. The caddie may have described holes informally — extract par, yardage, and hazards from context. Ask for nothing. Work with what you have.
 
 Generate a personalized playbook for this player on this course today.`;
+}
+
+/**
+ * Build a prompt for a specific range of holes (e.g., front 9 or back 9).
+ * Used for parallel generation — fires two calls simultaneously.
+ */
+export function buildPlaybookPromptForRange(
+  profile: PlayerWithClubs,
+  course: CourseWithHoles,
+  teeName: string,
+  weather: WeatherData,
+  scoringGoal: string,
+  holeStart: number,
+  holeEnd: number,
+  caddieNotes?: string[]
+): string {
+  const clubs = profile.clubs
+    .sort((a, b) => (b.carryDistance || 0) - (a.carryDistance || 0))
+    .map(
+      (c) =>
+        `${c.clubName}: ${c.carryDistance} yds carry` +
+        (c.isFairwayFinder ? ' \u2605 FAIRWAY FINDER' : '')
+    )
+    .join('\n');
+
+  const holesData = course.holes
+    .sort((a, b) => a.holeNumber - b.holeNumber)
+    .filter((h) => h.holeNumber >= holeStart && h.holeNumber <= holeEnd)
+    .map((h) => {
+      const note = caddieNotes?.[h.holeNumber - 1];
+      return {
+        number: h.holeNumber,
+        par: h.par,
+        yardage: (h.yardages as Record<string, number>)[teeName],
+        handicap: h.handicapIndex,
+        intel: h.holeIntel,
+        ...(note ? { caddieNote: note } : {}),
+      };
+    });
+
+  const windDeg = weather?.wind_deg ?? 0;
+  const windSpeed = weather?.wind_speed ?? 0;
+  const temp = weather?.temp ?? 72;
+  const conditions = weather?.weather?.[0]?.description ?? 'clear';
+  const compass = degreesToCompass(windDeg);
+  const tees = course.tees as TeeInfo[];
+  const teeInfo = tees.find((t) => t.name === teeName);
+
+  return `
+PLAYER PROFILE:
+- Name: ${profile.displayName}
+- Handicap: ${profile.handicap || 'Not established'}
+- Stock shot shape: ${profile.stockShape}
+- Primary miss: ${profile.missPrimary}
+- Secondary miss: ${profile.missSecondary}
+- Miss notes: ${profile.missDescription || 'None'}
+- Scoring goal today: ${scoringGoal}
+- Dream: ${profile.dreamScore} | Goal: ${profile.goalScore} | Floor: ${profile.floorScore}
+
+CLUBS IN BAG:
+${clubs}
+
+COURSE: ${course.name}
+TEE: ${teeName} (${teeInfo?.totalYardage} yds, Rating ${teeInfo?.rating}, Slope ${teeInfo?.slope})
+PAR: ${course.par}
+COURSE INTEL: ${JSON.stringify(course.courseIntel)}
+
+WEATHER AT TEE TIME:
+- Temperature: ${Math.round(temp)}\u00B0F
+- Wind: ${Math.round(windSpeed)} mph from ${compass} (${windDeg}\u00B0)
+- Conditions: ${conditions}
+
+HOLE-BY-HOLE DATA (holes ${holeStart}-${holeEnd} only):
+${JSON.stringify(holesData, null, 2)}
+
+Generate strategies for holes ${holeStart}-${holeEnd} for this player on this course today.`;
 }
 
 /**
