@@ -69,7 +69,7 @@ export function HoleSelector({ holes, currentHole, scores, onSelect }: HoleSelec
 
   return (
     <View className="px-4 pt-5 pb-3">
-      <Text className="text-center text-xs tracking-[3px] text-cream-dim uppercase font-semibold mb-2.5">
+      <Text className="text-center text-[13px] tracking-[2px] text-cream-dim uppercase font-semibold mb-2.5">
         Front 9
       </Text>
       <View className="flex-row gap-1 justify-center flex-wrap mb-4">
@@ -86,7 +86,7 @@ export function HoleSelector({ holes, currentHole, scores, onSelect }: HoleSelec
       </View>
       {back.length > 0 && (
         <>
-          <Text className="text-center text-xs tracking-[3px] text-cream-dim uppercase font-semibold mb-2.5">
+          <Text className="text-center text-[13px] tracking-[2px] text-cream-dim uppercase font-semibold mb-2.5">
             Back 9
           </Text>
           <View className="flex-row gap-1 justify-center flex-wrap">

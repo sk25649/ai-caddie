@@ -40,7 +40,7 @@ export default function CustomCourseScreen() {
       </View>
 
       <View className="mt-6">
-        <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-2">
+        <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-2">
           Course Name
         </Text>
         <TextInput
@@ -52,7 +52,7 @@ export default function CustomCourseScreen() {
           accessibilityLabel="Course name"
         />
 
-        <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-2">
+        <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-2">
           Location (optional)
         </Text>
         <View className="flex-row gap-3 mb-5">
@@ -76,7 +76,7 @@ export default function CustomCourseScreen() {
           />
         </View>
 
-        <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-2">
+        <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-2">
           Tee Color / Name
         </Text>
         <TextInput
@@ -88,7 +88,7 @@ export default function CustomCourseScreen() {
           accessibilityLabel="Tee name"
         />
 
-        <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-2">
+        <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-2">
           Course Description
         </Text>
         <TextInput
@@ -104,7 +104,7 @@ export default function CustomCourseScreen() {
           style={{ minHeight: 200, textAlignVertical: 'top' }}
           accessibilityLabel="Course description"
         />
-        <Text className="text-xs text-cream-dim/50 mt-2 mb-6">
+        <Text className="text-[13px] text-cream-dim/50 mt-2 mb-6">
           Describe hazards, doglegs, green slopes, and distances you know. Claude fills gaps.
         </Text>
       </View>

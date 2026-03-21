@@ -42,7 +42,7 @@ export default function SignupScreen() {
   return (
     <View className="flex-1 bg-green-deep px-6 justify-center">
       <View className="items-center mb-10">
-        <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
+        <Text className="text-[13px] tracking-[4px] uppercase text-gold font-semibold mb-2">
           AI Caddie
         </Text>
         <Text className="text-3xl text-white" style={{ fontFamily: 'serif' }}>

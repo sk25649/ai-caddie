@@ -73,7 +73,7 @@ export default function SummaryScreen() {
   return (
     <ScrollView className="flex-1 bg-green-deep" contentInsetAdjustmentBehavior="automatic">
       <View className="pt-6 pb-6 px-6 items-center border-b-2 border-gold">
-        <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
+        <Text className="text-[13px] tracking-[4px] uppercase text-gold font-semibold mb-2">
           Round Complete
         </Text>
         <Text className="text-[48px] text-gold" style={{ fontFamily: 'serif' }}>
@@ -90,20 +90,20 @@ export default function SummaryScreen() {
           <Card className="mb-4">
             <View className="flex-row">
               <View className="flex-1 items-center py-4 border-r border-gold/10">
-                <Text className="text-cream-dim text-sm mb-1">Front 9</Text>
+                <Text className="text-cream-dim text-[15px] mb-1">Front 9</Text>
                 <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
                   {frontScore}
                 </Text>
-                <Text className="text-xs text-cream-dim">
+                <Text className="text-[13px] text-cream-dim">
                   ({frontScore > frontPar ? '+' : ''}{frontScore - frontPar})
                 </Text>
               </View>
               <View className="flex-1 items-center py-4">
-                <Text className="text-cream-dim text-sm mb-1">Back 9</Text>
+                <Text className="text-cream-dim text-[15px] mb-1">Back 9</Text>
                 <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
                   {backScore}
                 </Text>
-                <Text className="text-xs text-cream-dim">
+                <Text className="text-[13px] text-cream-dim">
                   ({backScore > backPar ? '+' : ''}{backScore - backPar})
                 </Text>
               </View>
@@ -114,7 +114,7 @@ export default function SummaryScreen() {
         {/* Scoring Breakdown */}
         <Card className="mb-4">
           <View className="p-5">
-            <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-4">
+            <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-4">
               Scoring Breakdown
             </Text>
             <View className="gap-3">

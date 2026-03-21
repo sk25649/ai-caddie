@@ -127,7 +127,7 @@ export default function DetailsScreen() {
       </View>
 
       {/* Holes */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Holes
       </Text>
       <View className="flex-row gap-2 mb-6">
@@ -142,7 +142,7 @@ export default function DetailsScreen() {
             <Text className={`text-base font-semibold ${holesCount === n ? 'text-gold' : 'text-cream-dim'}`}>
               {n} Holes
             </Text>
-            <Text className={`text-xs mt-0.5 ${holesCount === n ? 'text-gold/70' : 'text-cream-dim/50'}`}>
+            <Text className={`text-[13px] mt-0.5 ${holesCount === n ? 'text-gold/70' : 'text-cream-dim/50'}`}>
               {n === 9 ? 'Front 9' : 'Full Round'}
             </Text>
           </Pressable>
@@ -150,7 +150,7 @@ export default function DetailsScreen() {
       </View>
 
       {/* Date */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Round Date
       </Text>
       <View className="flex-row gap-2 mb-6">
@@ -168,7 +168,7 @@ export default function DetailsScreen() {
             <Text className={`text-base font-semibold ${roundDate === d ? 'text-gold' : 'text-cream-dim'}`}>
               {d === today ? 'Today' : 'Tomorrow'}
             </Text>
-            <Text className={`text-xs mt-0.5 ${roundDate === d ? 'text-gold/70' : 'text-cream-dim/50'}`}>
+            <Text className={`text-[13px] mt-0.5 ${roundDate === d ? 'text-gold/70' : 'text-cream-dim/50'}`}>
               {dateLabel(d)}
             </Text>
           </Pressable>
@@ -176,7 +176,7 @@ export default function DetailsScreen() {
       </View>
 
       {/* Tee Time */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Tee Time
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6" contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
@@ -203,7 +203,7 @@ export default function DetailsScreen() {
         ))}
       </ScrollView>
 
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Scoring Goal
       </Text>
       <View className="flex-row flex-wrap gap-2 mb-8">
@@ -236,7 +236,7 @@ export default function DetailsScreen() {
         <View className="flex-row justify-between items-center mb-2">
           <View className="flex-1 mr-4">
             <Text className="text-base font-semibold text-cream">Competition Round</Text>
-            <Text className="text-xs text-cream-dim mt-1 leading-4">
+            <Text className="text-[13px] text-cream-dim mt-1 leading-5">
               Hides strategy on-course (Rule 4.3). Study your playbook now — print it before you play.
             </Text>
           </View>

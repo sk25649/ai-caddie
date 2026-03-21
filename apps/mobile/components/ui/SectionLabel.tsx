@@ -8,7 +8,7 @@ interface SectionLabelProps {
 export function SectionLabel({ children, className = '' }: SectionLabelProps) {
   return (
     <Text
-      className={`text-xs tracking-[3px] uppercase text-gold font-bold mb-3 ${className}`}
+      className={`text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3 ${className}`}
     >
       {children}
     </Text>

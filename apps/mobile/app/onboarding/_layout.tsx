@@ -18,10 +18,10 @@ export default function OnboardingLayout() {
       {/* Progress Bar */}
       <View className="pt-14 px-6 pb-4">
         <View className="flex-row justify-between mb-2">
-          <Text className="text-xs tracking-[3px] uppercase text-gold font-bold">
+          <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold">
             Setup
           </Text>
-          <Text className="text-xs text-cream-dim">
+          <Text className="text-[13px] text-cream-dim">
             Step {currentStep + 1} of {STEPS.length}
           </Text>
         </View>

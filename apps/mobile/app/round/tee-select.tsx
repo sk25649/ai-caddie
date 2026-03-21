@@ -43,7 +43,7 @@ export default function TeeSelectScreen() {
         <Pressable onPress={() => router.back()} className="py-2 mb-2 self-start">
           <Text className="text-gold text-base">‹ Back</Text>
         </Pressable>
-        <Text className="text-cream-dim text-sm mb-2">{course.name}</Text>
+        <Text className="text-cream-dim text-[15px] mb-2">{course.name}</Text>
         <Text className="text-2xl text-white" style={{ fontFamily: 'serif' }}>
           Choose Your Tees
         </Text>
@@ -72,11 +72,11 @@ export default function TeeSelectScreen() {
                       <Text className="text-lg font-bold text-white">{tee.name}</Text>
                       {isRecommended && (
                         <View className="bg-gold/20 px-2.5 py-0.5 rounded-md">
-                          <Text className="text-xs text-gold font-bold">RECOMMENDED</Text>
+                          <Text className="text-[13px] text-gold font-bold">RECOMMENDED</Text>
                         </View>
                       )}
                     </View>
-                    <Text className="text-sm text-cream-dim mt-1">
+                    <Text className="text-[15px] text-cream-dim mt-1">
                       Rating {tee.rating} · Slope {tee.slope}
                     </Text>
                   </View>
@@ -85,7 +85,7 @@ export default function TeeSelectScreen() {
                   <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
                     {tee.totalYardage}
                   </Text>
-                  <Text className="text-xs text-cream-dim">yds</Text>
+                  <Text className="text-[13px] text-cream-dim">yds</Text>
                 </View>
               </View>
             </Pressable>

@@ -160,7 +160,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
       {/* Aim Point — hero element */}
       {hole.aim_point ? (
         <View className="px-6 pt-5 pb-4 border-b border-gold/8">
-          <Text className="text-[11px] text-gold tracking-[4px] font-bold uppercase mb-2">
+          <Text className="text-[13px] text-gold tracking-[3px] font-bold uppercase mb-2">
             Aim Here
           </Text>
           <Text className="text-[22px] font-bold text-white leading-8">
@@ -168,13 +168,13 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
           </Text>
           {(!isCompetitionMode || competitionRevealed) && hole.carry_target ? (
             <View className="flex-row items-baseline gap-1.5 mt-2">
-              <Text className="text-[11px] text-cream-dim tracking-[3px] font-semibold uppercase">
+              <Text className="text-[13px] text-cream-dim tracking-[2px] font-semibold uppercase">
                 Carry
               </Text>
               <Text className="text-[24px] font-bold text-gold" style={{ fontFamily: 'serif' }}>
                 {hole.carry_target}
               </Text>
-              <Text className="text-[13px] text-cream-dim font-semibold">yds</Text>
+              <Text className="text-sm text-cream-dim font-semibold">yds</Text>
             </View>
           ) : null}
         </View>
@@ -210,7 +210,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
           >
             <Text className="text-[26px]">{hole.is_par_chance ? '🎯' : '🛡️'}</Text>
             <View>
-              <Text className="text-xs text-cream-dim tracking-widest font-semibold uppercase">
+              <Text className="text-[13px] text-cream-dim tracking-widest font-semibold uppercase">
                 Target
               </Text>
               <Text className="text-[19px] font-bold text-white mt-0.5">
@@ -224,7 +224,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
             <View className="mx-5 mt-4 p-4 rounded-[14px] border-2"
               style={{ backgroundColor: 'rgba(200, 120, 20, 0.12)', borderColor: 'rgba(200, 120, 20, 0.30)' }}
             >
-              <Text className="text-[13px] tracking-widest font-bold mb-1.5"
+              <Text className="text-sm tracking-widest font-bold mb-1.5"
                 style={{ color: '#c87814' }}
               >
                 ⛰️ TERRAIN
@@ -235,7 +235,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
 
           {/* Danger */}
           <View className="mx-5 mt-4 p-4 rounded-[14px] bg-danger/[0.12] border-2 border-danger/20">
-            <Text className="text-[13px] text-danger tracking-widest font-bold mb-1.5">
+            <Text className="text-sm text-danger tracking-widest font-bold mb-1.5">
               ⚠️ DANGER
             </Text>
             <Text className="text-[17px] leading-7 text-cream">{hole.danger}</Text>
@@ -244,13 +244,13 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
           {/* Caddie Note — collapsible */}
           <View className="mx-5 mt-4">
             <Pressable onPress={() => setNoteOpen((prev) => !prev)} className="flex-row items-center mt-3 mb-1">
-              <Text className="text-xs tracking-[2px] uppercase text-gold font-bold flex-1">
+              <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold flex-1">
                 Caddie Note
               </Text>
-              <Text className="text-gold text-xs">{noteOpen ? '▲' : '▼'}</Text>
+              <Text className="text-gold text-[13px]">{noteOpen ? '▲' : '▼'}</Text>
             </Pressable>
             {!noteOpen && note ? (
-              <Text className="text-xs text-cream-dim italic" numberOfLines={1}>{note}</Text>
+              <Text className="text-[13px] text-cream-dim italic" numberOfLines={1}>{note}</Text>
             ) : null}
             {noteOpen && (
               <TextInput
@@ -320,7 +320,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
           className="mx-5 my-3 py-3 rounded-xl border-2 border-gold/30 items-center bg-black/20"
         >
           <Text className="text-sm text-gold font-semibold">Show Strategy</Text>
-          <Text className="text-xs text-cream-dim mt-0.5">May affect Rule 4.3 compliance</Text>
+          <Text className="text-[13px] text-cream-dim mt-0.5">May affect Rule 4.3 compliance</Text>
         </Pressable>
       )}
 
@@ -353,7 +353,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
                     {value}
                   </Text>
                   <Text
-                    className={`text-[11px] mt-0.5 font-medium ${active ? 'text-white' : 'text-cream-dim'}`}
+                    className={`text-[12px] mt-0.5 font-medium ${active ? 'text-white' : 'text-cream-dim'}`}
                   >
                     {scoreLabel(d)}
                   </Text>

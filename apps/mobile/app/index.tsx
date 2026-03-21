@@ -31,7 +31,7 @@ export default function HomeScreen() {
     <ScrollView className="flex-1 bg-green-deep" contentInsetAdjustmentBehavior="automatic">
       {/* Header */}
       <View className="pt-6 pb-6 px-6 border-b-2 border-gold">
-        <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
+        <Text className="text-[13px] tracking-[4px] uppercase text-gold font-semibold mb-2">
           AI Caddie
         </Text>
         {isLoading ? (
@@ -57,24 +57,24 @@ export default function HomeScreen() {
         {profile && (
           <Card className="mb-6">
             <View className="p-5">
-              <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+              <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
                 Your Game
               </Text>
               <View className="flex-row justify-between">
                 <View className="items-center flex-1">
-                  <Text className="text-cream-dim text-sm mb-1">Handicap</Text>
+                  <Text className="text-cream-dim text-[15px] mb-1">Handicap</Text>
                   <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
                     {profile.handicap || '—'}
                   </Text>
                 </View>
                 <View className="items-center flex-1">
-                  <Text className="text-cream-dim text-sm mb-1">Shot Shape</Text>
+                  <Text className="text-cream-dim text-[15px] mb-1">Shot Shape</Text>
                   <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
                     {profile.stockShape || '—'}
                   </Text>
                 </View>
                 <View className="items-center flex-1">
-                  <Text className="text-cream-dim text-sm mb-1">Goal</Text>
+                  <Text className="text-cream-dim text-[15px] mb-1">Goal</Text>
                   <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
                     {profile.goalScore || '—'}
                   </Text>

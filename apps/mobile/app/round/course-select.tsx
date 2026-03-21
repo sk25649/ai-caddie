@@ -33,7 +33,7 @@ export default function CourseSelectScreen() {
       className="bg-green-card border border-gold/20 rounded-xl px-5 py-4 mb-3"
     >
       <Text className="text-lg font-semibold text-white">{item.name}</Text>
-      <Text className="text-sm text-cream-dim mt-1">
+      <Text className="text-[15px] text-cream-dim mt-1">
         {item.city}, {item.state} · Par {item.par}
       </Text>
     </Pressable>
@@ -80,7 +80,7 @@ export default function CourseSelectScreen() {
               onPress={() => { Haptics.selectionAsync(); router.push('/round/custom-course'); }}
               className="mt-2 mb-4 py-4 items-center border border-gold/15 rounded-xl bg-black/20"
             >
-              <Text className="text-sm text-gold font-semibold">
+              <Text className="text-[15px] text-gold font-semibold">
                 Playing a course not listed? Enter it manually →
               </Text>
             </Pressable>

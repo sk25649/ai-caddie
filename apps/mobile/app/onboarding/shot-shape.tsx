@@ -67,7 +67,7 @@ export default function ShotShapeScreen() {
       </View>
 
       {/* Stock Shape */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Stock Shot Shape
       </Text>
       <View className="flex-row gap-3 mb-8">
@@ -96,7 +96,7 @@ export default function ShotShapeScreen() {
       </View>
 
       {/* Primary Miss */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Primary Miss
       </Text>
       <View className="flex-row flex-wrap gap-2 mb-6">
@@ -122,7 +122,7 @@ export default function ShotShapeScreen() {
       </View>
 
       {/* Secondary Miss */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Secondary Miss
       </Text>
       <View className="flex-row flex-wrap gap-2 mb-6">

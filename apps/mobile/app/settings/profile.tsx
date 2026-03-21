@@ -103,7 +103,7 @@ export default function ProfileSettingsScreen() {
       <Input label="Handicap" value={handicap} onChangeText={setHandicap} keyboardType="decimal-pad" accessibilityLabel="Handicap" />
 
       {/* Shot Shape */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Stock Shot Shape
       </Text>
       <View className="flex-row gap-3 mb-6">
@@ -126,7 +126,7 @@ export default function ProfileSettingsScreen() {
       </View>
 
       {/* Primary Miss */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Primary Miss
       </Text>
       <View className="flex-row flex-wrap gap-2 mb-6">
@@ -146,7 +146,7 @@ export default function ProfileSettingsScreen() {
       </View>
 
       {/* Secondary Miss */}
-      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+      <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold mb-3">
         Secondary Miss
       </Text>
       <View className="flex-row flex-wrap gap-2 mb-6">

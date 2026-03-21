@@ -95,7 +95,7 @@ export default function PlaybookScreen() {
         <Pressable onPress={() => router.replace('/')} className="absolute left-5 top-6 py-2">
           <Text className="text-gold text-base">⌂ Home</Text>
         </Pressable>
-        <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
+        <Text className="text-[13px] tracking-[4px] uppercase text-gold font-semibold mb-2">
           Caddie Playbook
         </Text>
         <Text className="text-[28px] text-white text-center" style={{ fontFamily: 'serif' }}>
@@ -109,19 +109,19 @@ export default function PlaybookScreen() {
       {/* Targets */}
       <View className="flex-row justify-center gap-3.5 py-4 px-5 bg-black/25 border-b border-gold/15">
         <View className="items-center min-w-[80px]">
-          <Text className="text-cream-dim text-xs mb-1">Projected</Text>
+          <Text className="text-cream-dim text-[13px] mb-1">Projected</Text>
           <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
             {playbook.projectedScore || '—'}
           </Text>
         </View>
         <View className="items-center min-w-[80px]">
-          <Text className="text-cream-dim text-xs mb-1">Par Chances</Text>
+          <Text className="text-cream-dim text-[13px] mb-1">Par Chances</Text>
           <Text className="text-2xl text-par-green" style={{ fontFamily: 'serif' }}>
             {parChances}
           </Text>
         </View>
         <View className="items-center min-w-[80px]">
-          <Text className="text-cream-dim text-xs mb-1">Driver Holes</Text>
+          <Text className="text-cream-dim text-[13px] mb-1">Driver Holes</Text>
           <Text className="text-2xl text-danger" style={{ fontFamily: 'serif' }}>
             {playbook.driverHoles?.length || 0}
           </Text>
@@ -131,8 +131,8 @@ export default function PlaybookScreen() {
       {/* Competition Mode Badge */}
       {isCompetitionMode && (
         <View className="mx-4 mt-3 py-2 px-4 bg-gold/10 border border-gold/30 rounded-xl flex-row items-center justify-center gap-2">
-          <Text className="text-xs tracking-[3px] uppercase text-gold font-bold">Competition Mode</Text>
-          <Text className="text-xs text-cream-dim">· Rule 4.3 Active</Text>
+          <Text className="text-[13px] tracking-[2px] uppercase text-gold font-bold">Competition Mode</Text>
+          <Text className="text-[13px] text-cream-dim">· Rule 4.3 Active</Text>
         </View>
       )}
 
@@ -157,7 +157,7 @@ export default function PlaybookScreen() {
             onPress={() => setPreRoundOpen((o) => !o)}
             className="flex-row justify-between items-center px-5 py-4"
           >
-            <Text className="text-xs tracking-[4px] uppercase text-gold font-bold">
+            <Text className="text-[13px] tracking-[3px] uppercase text-gold font-bold">
               Pre-Round Talk
             </Text>
             <Text className="text-gold text-lg">{preRoundOpen ? '▲' : '▼'}</Text>
