@@ -1,5 +1,5 @@
-import { ScrollView, View, Text } from 'react-native';
-import { useEffect } from 'react';
+import { ScrollView, View, Text, Pressable } from 'react-native';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useRoundStore } from '../../stores/roundStore';
@@ -19,15 +19,18 @@ export default function PlaybookScreen() {
   const setScore = useRoundStore((s) => s.setScore);
   const setCurrentHole = useRoundStore((s) => s.setCurrentHole);
 
+  const [preRoundOpen, setPreRoundOpen] = useState(false);
+
   // Stop any in-progress speech when the user switches holes
   useEffect(() => {
     Speech.stop();
   }, [currentHole]);
 
-  if (!playbook || !course) {
-    router.back();
-    return null;
-  }
+  useEffect(() => {
+    if (!playbook || !course) router.back();
+  }, [playbook, course, router]);
+
+  if (!playbook || !course) return null;
 
   const holes = playbook.holeStrategies;
   const teeInfo = (course.tees as TeeInfo[]).find((t) => t.name === playbook.teeName);
@@ -41,9 +44,9 @@ export default function PlaybookScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-green-deep">
+    <ScrollView className="flex-1 bg-green-deep" contentInsetAdjustmentBehavior="automatic">
       {/* Header */}
-      <View className="pt-14 pb-6 px-5 border-b-2 border-gold items-center">
+      <View className="pt-6 pb-6 px-5 border-b-2 border-gold items-center">
         <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
           Caddie Playbook
         </Text>
@@ -80,6 +83,22 @@ export default function PlaybookScreen() {
       {/* Live Score */}
       <LiveScoreBar holes={holes} scores={scores} />
 
+      {/* Pre-Round Talk */}
+      {playbook.preRoundTalk ? (
+        <View className="mx-4 mt-4 mb-2 bg-green-card border border-gold/20 rounded-2xl overflow-hidden">
+          <Pressable
+            onPress={() => setPreRoundOpen((o) => !o)}
+            className="flex-row justify-between items-center px-5 py-4"
+          >
+            <Text className="text-xs tracking-[4px] uppercase text-gold font-bold">
+              Pre-Round Talk
+            </Text>
+            <Text className="text-gold text-lg">{preRoundOpen ? '▲' : '▼'}</Text>
+          </Pressable>
+          {preRoundOpen && <PreRoundTalk content={playbook.preRoundTalk} />}
+        </View>
+      ) : null}
+
       {/* Hole Selector */}
       <HoleSelector
         holes={holes}
@@ -94,14 +113,12 @@ export default function PlaybookScreen() {
           hole={holes[currentHole]}
           score={scores[currentHole]}
           onScore={(score) => setScore(currentHole, score)}
+          onNext={() => setCurrentHole(Math.min(currentHole + 1, 17))}
         />
       )}
 
-      {/* Pre-Round Talk */}
-      {playbook.preRoundTalk && <PreRoundTalk content={playbook.preRoundTalk} />}
-
       {/* Finish Round */}
-      {holesPlayed >= 18 && (
+      {holesPlayed >= 1 && (
         <View className="px-4 pb-6">
           <Button title="Finish Round" onPress={handleFinishRound} />
         </View>

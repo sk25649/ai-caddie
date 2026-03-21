@@ -2,6 +2,7 @@ import { View, Text, FlatList, Pressable, TextInput } from 'react-native';
 import { useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCourses } from '../../hooks/useCourses';
 import { useRoundStore } from '../../stores/roundStore';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
@@ -26,7 +27,7 @@ export default function CourseSelectScreen() {
     [setCourse, router]
   );
 
-  const renderCourse = ({ item }: { item: Course }) => (
+  const renderCourse = useCallback(({ item }: { item: Course }) => (
     <Pressable
       onPress={() => handleSelect(item)}
       className="bg-green-card border border-gold/20 rounded-xl px-5 py-4 mb-3"
@@ -36,11 +37,11 @@ export default function CourseSelectScreen() {
         {item.city}, {item.state} · Par {item.par}
       </Text>
     </Pressable>
-  );
+  ), [handleSelect]);
 
   return (
-    <View className="flex-1 bg-green-deep">
-      <View className="pt-14 px-6 pb-4 border-b border-gold/20">
+    <SafeAreaView className="flex-1 bg-green-deep">
+      <View className="px-6 pb-4 border-b border-gold/20">
         <Text className="text-2xl text-white mb-4" style={{ fontFamily: 'serif' }}>
           Pick Your Course
         </Text>
@@ -73,6 +74,6 @@ export default function CourseSelectScreen() {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }

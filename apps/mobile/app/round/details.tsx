@@ -1,11 +1,10 @@
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useRoundStore } from '../../stores/roundStore';
 import { useGeneratePlaybook } from '../../hooks/usePlaybook';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 
 const SCORING_GOALS = [
   'Break 80',
@@ -16,6 +15,30 @@ const SCORING_GOALS = [
   'Just have fun',
 ];
 
+function formatDate(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+function dateLabel(dateStr: string): string {
+  const today = formatDate(new Date());
+  const tomorrow = formatDate(new Date(Date.now() + 86400000));
+  if (dateStr === today) return 'Today';
+  if (dateStr === tomorrow) return 'Tomorrow';
+  // Format as "Mon Mar 21"
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+const TEE_TIMES: string[] = [];
+for (let h = 6; h <= 17; h++) {
+  TEE_TIMES.push(`${String(h).padStart(2, '0')}:00`);
+  if (h < 17) TEE_TIMES.push(`${String(h).padStart(2, '0')}:30`);
+}
+
 export default function DetailsScreen() {
   const router = useRouter();
   const course = useRoundStore((s) => s.selectedCourse);
@@ -24,15 +47,17 @@ export default function DetailsScreen() {
   const setPlaybook = useRoundStore((s) => s.setPlaybook);
   const generatePlaybook = useGeneratePlaybook();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDate(new Date());
+  const tomorrow = formatDate(new Date(Date.now() + 86400000));
   const [roundDate, setRoundDate] = useState(today);
-  const [teeTime, setTeeTime] = useState('12:00');
+  const [teeTime, setTeeTime] = useState('08:00');
   const [scoringGoal, setScoringGoal] = useState('');
 
-  if (!course || !tee) {
-    router.back();
-    return null;
-  }
+  useEffect(() => {
+    if (!course || !tee) router.back();
+  }, [course, tee, router]);
+
+  if (!course || !tee) return null;
 
   const handleGenerate = () => {
     if (!scoringGoal) return;
@@ -57,8 +82,8 @@ export default function DetailsScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled">
-      <View className="pt-14 pb-6">
+    <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
+      <View className="pt-6 pb-6">
         <Text className="text-cream-dim text-sm mb-1">
           {course.name} · {tee} Tees
         </Text>
@@ -67,21 +92,59 @@ export default function DetailsScreen() {
         </Text>
       </View>
 
-      <Input
-        label="Round Date"
-        value={roundDate}
-        onChangeText={setRoundDate}
-        placeholder="YYYY-MM-DD"
-        accessibilityLabel="Round date"
-      />
+      {/* Date */}
+      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+        Round Date
+      </Text>
+      <View className="flex-row gap-2 mb-6">
+        {[today, tomorrow].map((d) => (
+          <Pressable
+            key={d}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setRoundDate(d);
+            }}
+            className={`flex-1 py-3.5 rounded-xl border-2 items-center ${
+              roundDate === d ? 'border-gold bg-gold/20' : 'border-gold/15 bg-black/30'
+            }`}
+          >
+            <Text className={`text-base font-semibold ${roundDate === d ? 'text-gold' : 'text-cream-dim'}`}>
+              {d === today ? 'Today' : 'Tomorrow'}
+            </Text>
+            <Text className={`text-xs mt-0.5 ${roundDate === d ? 'text-gold/70' : 'text-cream-dim/50'}`}>
+              {dateLabel(d)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-      <Input
-        label="Tee Time"
-        value={teeTime}
-        onChangeText={setTeeTime}
-        placeholder="HH:MM (24h)"
-        accessibilityLabel="Tee time"
-      />
+      {/* Tee Time */}
+      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+        Tee Time
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6" contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+        {TEE_TIMES.map((t) => (
+          <Pressable
+            key={t}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setTeeTime(t);
+            }}
+            className={`px-4 py-3 rounded-xl border-2 items-center ${
+              teeTime === t ? 'border-gold bg-gold/20' : 'border-gold/15 bg-black/30'
+            }`}
+          >
+            <Text className={`text-base font-semibold ${teeTime === t ? 'text-gold' : 'text-cream-dim'}`}>
+              {(() => {
+                const [hh, mm] = t.split(':').map(Number);
+                const period = hh < 12 ? 'AM' : 'PM';
+                const h = hh % 12 || 12;
+                return `${h}:${String(mm).padStart(2, '0')} ${period}`;
+              })()}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
         Scoring Goal

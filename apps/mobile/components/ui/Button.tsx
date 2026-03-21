@@ -41,6 +41,7 @@ export function Button({
       onPress={handlePress}
       disabled={disabled || loading}
       className={`${baseClasses} ${variantClasses[variant]} ${disabled ? 'opacity-50' : ''} ${className}`}
+      style={{ borderCurve: 'continuous' }}
     >
       {loading ? (
         <ActivityIndicator

@@ -205,6 +205,7 @@ export async function getCourseHoles(slug: string): Promise<{ course: CourseDeta
 
 export interface HoleStrategy {
   hole_number: number;
+  handicap_index?: number;
   yardage: number;
   par: number;
   tee_club: string;

@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import type { HoleStrategy } from '../../lib/api';
@@ -11,6 +11,7 @@ interface HoleCardProps {
   hole: HoleStrategy;
   score: number | null;
   onScore: (score: number | null) => void;
+  onNext?: () => void;
 }
 
 type MissType = 'left' | 'right' | 'short' | null;
@@ -34,9 +35,12 @@ function scoreColor(d: number): string {
 }
 
 
-export function HoleCard({ hole, score, onScore }: HoleCardProps) {
+export function HoleCard({ hole, score, onScore, onNext }: HoleCardProps) {
   const [activeMiss, setActiveMiss] = useState<MissType>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (nextTimerRef.current) clearTimeout(nextTimerRef.current); }, []);
 
   const toggleMiss = (type: MissType) => {
     Haptics.selectionAsync();
@@ -60,7 +64,12 @@ export function HoleCard({ hole, score, onScore }: HoleCardProps) {
 
   const handleScore = (value: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const isSetting = score !== value;
     onScore(score === value ? null : value);
+    if (isSetting) {
+      if (nextTimerRef.current) clearTimeout(nextTimerRef.current);
+      nextTimerRef.current = setTimeout(() => onNext?.(), 400);
+    }
   };
 
   const missText =
@@ -95,7 +104,7 @@ export function HoleCard({ hole, score, onScore }: HoleCardProps) {
             Hole {hole.hole_number}
           </Text>
           <Text className="text-[15px] text-cream-dim mt-1">
-            HDCP {hole.hole_number}
+            {hole.handicap_index != null ? `HDCP ${hole.handicap_index}` : ''}
             {hole.is_par_chance && (
               <Text className="text-par-green font-bold"> ★ PAR</Text>
             )}
@@ -264,7 +273,7 @@ export function HoleCard({ hole, score, onScore }: HoleCardProps) {
       <View className="px-6 py-5 border-t border-gold/8 bg-black/20">
         <SectionLabel>Record Score</SectionLabel>
         <View className="flex-row gap-2 justify-center flex-wrap">
-          {[-1, 0, 1, 2, 3, 4]
+          {[-2, -1, 0, 1, 2, 3, 4]
             .filter((d) => hole.par + d >= 1)
             .map((d) => {
               const value = hole.par + d;

@@ -9,6 +9,7 @@ export function Card({ children, className = '', ...props }: CardProps) {
   return (
     <View
       className={`bg-green-card border border-gold/20 rounded-2xl overflow-hidden ${className}`}
+      style={{ borderCurve: 'continuous' }}
       {...props}
     >
       {children}

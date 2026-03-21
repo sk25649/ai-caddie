@@ -39,6 +39,7 @@ Return ONLY valid JSON (no markdown, no backticks):
   "holes": [
     {
       "hole_number": 1,
+      "handicap_index": 7,
       "yardage": 309,
       "par": 4,
       "tee_club": "3-Hybrid",

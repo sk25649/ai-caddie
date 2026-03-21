@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, Alert } from 'react-native';
+import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { useRoundStore } from '../../stores/roundStore';
 import { saveRound } from '../../lib/api';
@@ -16,10 +17,11 @@ export default function SummaryScreen() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
-  if (!playbook || !course) {
-    router.replace('/');
-    return null;
-  }
+  useEffect(() => {
+    if (!playbook || !course) router.replace('/');
+  }, [playbook, course, router]);
+
+  if (!playbook || !course) return null;
 
   const holes = playbook.holeStrategies;
   const holeScores = scores.map((s, i) => s ?? holes[i].par + 1);
@@ -67,8 +69,8 @@ export default function SummaryScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-green-deep">
-      <View className="pt-14 pb-6 px-6 items-center border-b-2 border-gold">
+    <ScrollView className="flex-1 bg-green-deep" contentInsetAdjustmentBehavior="automatic">
+      <View className="pt-6 pb-6 px-6 items-center border-b-2 border-gold">
         <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
           Round Complete
         </Text>

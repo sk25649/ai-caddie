@@ -1,8 +1,8 @@
 import { View, Text, ScrollView, Pressable, TextInput, Alert } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useUpdateClubs } from '../../hooks/useProfile';
+import { useUpdateClubs, useProfile } from '../../hooks/useProfile';
 import { Button } from '../../components/ui/Button';
 
 interface ClubEntry {
@@ -32,7 +32,27 @@ const PRESET_CLUBS: ClubEntry[] = [
 export default function BagScreen() {
   const router = useRouter();
   const updateClubs = useUpdateClubs();
+  const { data: profile } = useProfile();
   const [clubs, setClubs] = useState<ClubEntry[]>(PRESET_CLUBS);
+
+  useEffect(() => {
+    if (!profile?.clubs?.length) return;
+    const saved = profile.clubs;
+    setClubs(
+      PRESET_CLUBS.map((preset) => {
+        const match = saved.find((c) => c.clubName === preset.clubName);
+        if (!match) {
+          // Club was removed by user in a previous edit
+          return { ...preset, carryDistance: 'REMOVED' };
+        }
+        return {
+          ...preset,
+          carryDistance: match.carryDistance != null ? String(match.carryDistance) : '',
+          isFairwayFinder: match.isFairwayFinder ?? false,
+        };
+      })
+    );
+  }, [profile]);
 
   const toggleClub = (index: number) => {
     // Clear distance to remove, set to '0' to add back
@@ -81,8 +101,8 @@ export default function BagScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled">
-      <View className="pt-8 pb-4">
+    <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
+      <View className="pt-4 pb-4">
         <Text className="text-3xl text-white mb-2" style={{ fontFamily: 'serif' }}>
           What's in Your Bag?
         </Text>
@@ -120,7 +140,10 @@ export default function BagScreen() {
                   onChangeText={(v) => setDistance(i, v)}
                   accessibilityLabel={`${club.clubName} carry distance`}
                 />
-                <Pressable onPress={() => toggleFairwayFinder(i)}>
+                <Pressable
+                  onPress={() => toggleFairwayFinder(i)}
+                  className="w-11 h-11 items-center justify-center"
+                >
                   <Text className={`text-2xl ${club.isFairwayFinder ? 'text-gold' : 'text-cream-dim/30'}`}>
                     ★
                   </Text>
