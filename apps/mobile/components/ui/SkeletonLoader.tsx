@@ -1,11 +1,5 @@
-import { View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
-import { useEffect } from 'react';
+import { View, Animated } from 'react-native';
+import { useEffect, useRef } from 'react';
 
 interface SkeletonProps {
   width?: number | string;
@@ -20,15 +14,16 @@ export function SkeletonLoader({
   borderRadius = 8,
   className = '',
 }: SkeletonProps) {
-  const opacity = useSharedValue(0.3);
+  const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    opacity.value = withRepeat(withTiming(0.7, { duration: 1000 }), -1, true);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 1000, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
   }, [opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
 
   return (
     <Animated.View
@@ -38,8 +33,8 @@ export function SkeletonLoader({
           height,
           borderRadius,
           backgroundColor: '#b8a88833',
+          opacity,
         },
-        animatedStyle,
       ]}
       className={`${typeof width === 'string' ? 'w-full' : ''} ${className}`}
     />

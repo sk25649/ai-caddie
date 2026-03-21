@@ -60,8 +60,12 @@ export default function LoginScreen() {
       setAuth(result.token, result.userId);
       router.replace('/');
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code !== 'ERR_REQUEST_CANCELED') {
-        Alert.alert('Error', 'Apple Sign-In failed');
+      // Ignore user cancellation; surface everything else
+      const isCancel = err && typeof err === 'object' && 'code' in err &&
+        (err as { code: string }).code === 'ERR_REQUEST_CANCELED';
+      if (!isCancel) {
+        const message = err instanceof ApiError ? err.message : 'Apple Sign-In failed';
+        Alert.alert('Error', message);
       }
     }
   };
