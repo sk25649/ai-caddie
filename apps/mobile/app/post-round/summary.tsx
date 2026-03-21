@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Alert } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { useRoundStore } from '../../stores/roundStore';
-import { saveRound } from '../../lib/api';
+import { saveRound, getRoundReview, type RoundReview } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { useState } from 'react';
@@ -17,6 +17,8 @@ export default function SummaryScreen() {
   const reset = useRoundStore((s) => s.reset);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [review, setReview] = useState<RoundReview | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   useEffect(() => {
     if (!playbook || !course) router.replace('/');
@@ -45,7 +47,7 @@ export default function SummaryScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveRound({
+      const savedRound = await saveRound({
         playbookId: playbook.id,
         courseId: course.id,
         roundDate: playbook.roundDate || new Date().toISOString().split('T')[0],
@@ -54,6 +56,12 @@ export default function SummaryScreen() {
         totalScore,
         notes: notes || undefined,
       });
+
+      // Load decision review
+      setReviewLoading(true);
+      const reviewData = await getRoundReview(savedRound.id);
+      setReview(reviewData);
+
       Alert.alert('Round Saved', `${totalScore} at ${course.name}`, [
         {
           text: 'Done',
@@ -63,10 +71,12 @@ export default function SummaryScreen() {
           },
         },
       ]);
-    } catch {
+    } catch (err) {
+      console.error('Save error:', err);
       Alert.alert('Error', 'Failed to save round. Please try again.');
     } finally {
       setSaving(false);
+      setReviewLoading(false);
     }
   };
 
@@ -143,6 +153,71 @@ export default function SummaryScreen() {
             </View>
           </View>
         </Card>
+
+        {/* Decision Review & Lessons */}
+        {review && review.type === 'decision_review' && review.analysis && (
+          <>
+            {/* Best & Worst Holes */}
+            {(review.analysis.bestHoles?.length > 0 || review.analysis.worstHoles?.length > 0) && (
+              <Card className="mb-4">
+                <View className="p-5">
+                  <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-4">
+                    Hole-by-Hole
+                  </Text>
+                  {review.analysis.worstHoles?.length > 0 && (
+                    <View className="mb-4">
+                      <Text className="text-xs text-danger mb-2">Toughest Holes</Text>
+                      <View className="gap-2">
+                        {review.analysis.worstHoles.map((h: any) => (
+                          <View key={h.hole} className="flex-row justify-between items-center">
+                            <Text className="text-cream">#{h.hole}</Text>
+                            <Text className="text-danger font-bold">
+                              {h.score} ({h.diff > 0 ? '+' : ''}{h.diff})
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                  {review.analysis.bestHoles?.length > 0 && (
+                    <View>
+                      <Text className="text-xs text-par-green mb-2">Best Holes</Text>
+                      <View className="gap-2">
+                        {review.analysis.bestHoles.map((h: any) => (
+                          <View key={h.hole} className="flex-row justify-between items-center">
+                            <Text className="text-cream">#{h.hole}</Text>
+                            <Text className="text-par-green font-bold">
+                              {h.score} ({h.diff > 0 ? '+' : ''}{h.diff})
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </Card>
+            )}
+
+            {/* Key Lessons */}
+            {review.lessons && review.lessons.length > 0 && (
+              <Card className="mb-4">
+                <View className="p-5">
+                  <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-4">
+                    Key Lessons
+                  </Text>
+                  <View className="gap-3">
+                    {review.lessons.map((lesson: string, idx: number) => (
+                      <View key={idx} className="flex-row gap-3">
+                        <Text className="text-gold font-bold">{idx + 1}.</Text>
+                        <Text className="flex-1 text-cream">{lesson}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </Card>
+            )}
+          </>
+        )}
 
         {/* Notes */}
         <Input
