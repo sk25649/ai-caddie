@@ -28,9 +28,9 @@ export default function HomeScreen() {
   if (!isAuthenticated) return null;
 
   return (
-    <ScrollView className="flex-1 bg-green-deep">
+    <ScrollView className="flex-1 bg-green-deep" contentInsetAdjustmentBehavior="automatic">
       {/* Header */}
-      <View className="pt-16 pb-6 px-6 border-b-2 border-gold">
+      <View className="pt-6 pb-6 px-6 border-b-2 border-gold">
         <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
           AI Caddie
         </Text>

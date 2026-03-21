@@ -11,7 +11,7 @@ export function PreRoundTalk({ content }: PreRoundTalkProps) {
 
   const toggle = () => {
     Haptics.selectionAsync();
-    setExpanded(!expanded);
+    setExpanded((prev) => !prev);
   };
 
   return (

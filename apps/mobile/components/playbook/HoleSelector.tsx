@@ -84,21 +84,25 @@ export function HoleSelector({ holes, currentHole, scores, onSelect }: HoleSelec
           />
         ))}
       </View>
-      <Text className="text-center text-xs tracking-[3px] text-cream-dim uppercase font-semibold mb-2.5">
-        Back 9
-      </Text>
-      <View className="flex-row gap-1 justify-center flex-wrap">
-        {back.map((hole, i) => (
-          <HoleButton
-            key={hole.hole_number}
-            hole={hole}
-            index={i + 9}
-            score={scores[i + 9]}
-            isActive={currentHole === i + 9}
-            onPress={onSelect}
-          />
-        ))}
-      </View>
+      {back.length > 0 && (
+        <>
+          <Text className="text-center text-xs tracking-[3px] text-cream-dim uppercase font-semibold mb-2.5">
+            Back 9
+          </Text>
+          <View className="flex-row gap-1 justify-center flex-wrap">
+            {back.map((hole, i) => (
+              <HoleButton
+                key={hole.hole_number}
+                hole={hole}
+                index={i + 9}
+                score={scores[i + 9]}
+                isActive={currentHole === i + 9}
+                onPress={onSelect}
+              />
+            ))}
+          </View>
+        </>
+      )}
     </View>
   );
 }

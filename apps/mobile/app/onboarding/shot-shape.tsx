@@ -56,8 +56,8 @@ export default function ShotShapeScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled">
-      <View className="pt-8 pb-6">
+    <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
+      <View className="pt-4 pb-6">
         <Text className="text-3xl text-white mb-2" style={{ fontFamily: 'serif' }}>
           Your Shot Shape
         </Text>

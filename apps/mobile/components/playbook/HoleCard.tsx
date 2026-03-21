@@ -53,7 +53,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
 
   const toggleMiss = (type: MissType) => {
     Haptics.selectionAsync();
-    setActiveMiss(activeMiss === type ? null : type);
+    setActiveMiss((prev) => (prev === type ? null : type));
   };
 
   const handleVoice = () => {
@@ -243,7 +243,7 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
 
           {/* Caddie Note — collapsible */}
           <View className="mx-5 mt-4">
-            <Pressable onPress={() => setNoteOpen(!noteOpen)} className="flex-row items-center mt-3 mb-1">
+            <Pressable onPress={() => setNoteOpen((prev) => !prev)} className="flex-row items-center mt-3 mb-1">
               <Text className="text-xs tracking-[2px] uppercase text-gold font-bold flex-1">
                 Caddie Note
               </Text>

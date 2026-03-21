@@ -148,7 +148,7 @@ export default function PlaybookScreen() {
       </Pressable>
 
       {/* Live Score */}
-      <LiveScoreBar holes={holes} scores={scores} />
+      <LiveScoreBar holes={holes} scores={scores.slice(0, holesCount)} />
 
       {/* Pre-Round Talk */}
       {playbook.preRoundTalk ? (
@@ -170,7 +170,7 @@ export default function PlaybookScreen() {
       <HoleSelector
         holes={holes}
         currentHole={currentHole}
-        scores={scores}
+        scores={scores.slice(0, holesCount)}
         onSelect={setCurrentHole}
       />
 

@@ -1,4 +1,5 @@
 import { View, Text, Pressable, ScrollView } from 'react-native';
+import { useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useRoundStore } from '../../stores/roundStore';
@@ -21,23 +22,24 @@ export default function TeeSelectScreen() {
   const setTee = useRoundStore((s) => s.setTee);
   const { data: profile } = useProfile();
 
-  if (!course) {
-    router.back();
-    return null;
-  }
+  useEffect(() => {
+    if (!course) router.back();
+  }, [course, router]);
+
+  const handleSelect = useCallback((tee: string) => {
+    Haptics.selectionAsync();
+    setTee(tee);
+    router.push('/round/details');
+  }, [setTee, router]);
+
+  if (!course) return null;
 
   const tees = course.tees as TeeInfo[];
   const recommended = recommendTee(profile?.handicap, tees);
 
-  const handleSelect = (tee: string) => {
-    Haptics.selectionAsync();
-    setTee(tee);
-    router.push('/round/details');
-  };
-
   return (
-    <ScrollView className="flex-1 bg-green-deep px-6">
-      <View className="pt-14 pb-6">
+    <ScrollView className="flex-1 bg-green-deep px-6" contentInsetAdjustmentBehavior="automatic">
+      <View className="pt-6 pb-6">
         <Pressable onPress={() => router.back()} className="py-2 mb-2 self-start">
           <Text className="text-gold text-base">‹ Back</Text>
         </Pressable>

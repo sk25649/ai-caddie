@@ -13,6 +13,7 @@ export default function SummaryScreen() {
   const playbook = useRoundStore((s) => s.playbook);
   const course = useRoundStore((s) => s.selectedCourse);
   const scores = useRoundStore((s) => s.scores);
+  const holesCount = useRoundStore((s) => s.holesCount);
   const reset = useRoundStore((s) => s.reset);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -23,8 +24,9 @@ export default function SummaryScreen() {
 
   if (!playbook || !course) return null;
 
-  const holes = playbook.holeStrategies;
-  const holeScores = scores.map((s, i) => s ?? holes[i].par + 1);
+  const holes = playbook.holeStrategies.slice(0, holesCount);
+  const roundScores = scores.slice(0, holesCount);
+  const holeScores = roundScores.map((s, i) => s ?? holes[i].par + 1);
   const totalScore = holeScores.reduce((sum, s) => sum + s, 0);
   const frontScore = holeScores.slice(0, 9).reduce((sum, s) => sum + s, 0);
   const backScore = holeScores.slice(9).reduce((sum, s) => sum + s, 0);
@@ -38,7 +40,7 @@ export default function SummaryScreen() {
   const doubles = holeScores.filter((s, i) => s >= holes[i].par + 2).length;
   const birdies = holeScores.filter((s, i) => s < holes[i].par).length;
 
-  const parConversion = Math.round((pars / 18) * 100);
+  const parConversion = Math.round((pars / holesCount) * 100);
 
   const handleSave = async () => {
     setSaving(true);
@@ -83,29 +85,31 @@ export default function SummaryScreen() {
       </View>
 
       <View className="p-6">
-        {/* Front/Back Split */}
-        <Card className="mb-4">
-          <View className="flex-row">
-            <View className="flex-1 items-center py-4 border-r border-gold/10">
-              <Text className="text-cream-dim text-sm mb-1">Front 9</Text>
-              <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
-                {frontScore}
-              </Text>
-              <Text className="text-xs text-cream-dim">
-                ({frontScore > frontPar ? '+' : ''}{frontScore - frontPar})
-              </Text>
+        {/* Front/Back Split — only for 18-hole rounds */}
+        {holesCount === 18 && (
+          <Card className="mb-4">
+            <View className="flex-row">
+              <View className="flex-1 items-center py-4 border-r border-gold/10">
+                <Text className="text-cream-dim text-sm mb-1">Front 9</Text>
+                <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
+                  {frontScore}
+                </Text>
+                <Text className="text-xs text-cream-dim">
+                  ({frontScore > frontPar ? '+' : ''}{frontScore - frontPar})
+                </Text>
+              </View>
+              <View className="flex-1 items-center py-4">
+                <Text className="text-cream-dim text-sm mb-1">Back 9</Text>
+                <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
+                  {backScore}
+                </Text>
+                <Text className="text-xs text-cream-dim">
+                  ({backScore > backPar ? '+' : ''}{backScore - backPar})
+                </Text>
+              </View>
             </View>
-            <View className="flex-1 items-center py-4">
-              <Text className="text-cream-dim text-sm mb-1">Back 9</Text>
-              <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
-                {backScore}
-              </Text>
-              <Text className="text-xs text-cream-dim">
-                ({backScore > backPar ? '+' : ''}{backScore - backPar})
-              </Text>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        )}
 
         {/* Scoring Breakdown */}
         <Card className="mb-4">
