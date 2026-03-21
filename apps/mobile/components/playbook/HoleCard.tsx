@@ -6,6 +6,7 @@ import { buildVoiceScript } from '../../lib/voiceScript';
 import { useElevenLabsVoice } from '../../hooks/useElevenLabsVoice';
 import { Card } from '../ui/Card';
 import { SectionLabel } from '../ui/SectionLabel';
+import { TrustLoop, type TrustLoopData } from './TrustLoop';
 
 interface HoleCardProps {
   hole: HoleStrategy;
@@ -15,6 +16,7 @@ interface HoleCardProps {
   isCompetitionMode?: boolean;
   note?: string;
   onNote?: (note: string) => void;
+  onTrustFeedback?: (feedback: TrustLoopData) => void;
 }
 
 type MissType = 'left' | 'right' | 'short' | null;
@@ -38,10 +40,11 @@ function scoreColor(d: number): string {
 }
 
 
-export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = false, note, onNote }: HoleCardProps) {
+export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = false, note, onNote, onTrustFeedback }: HoleCardProps) {
   const [activeMiss, setActiveMiss] = useState<MissType>(null);
   const [competitionRevealed, setCompetitionRevealed] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [showTrustLoop, setShowTrustLoop] = useState(false);
   const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voice = useElevenLabsVoice();
 
@@ -49,7 +52,17 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
 
   useEffect(() => {
     setCompetitionRevealed(false);
+    setShowTrustLoop(false);
   }, [hole.hole_number]);
+
+  // Show trust loop when score is first entered (not when cleared)
+  useEffect(() => {
+    if (score !== null && !showTrustLoop) {
+      // Delay slightly so player sees score first
+      const timer = setTimeout(() => setShowTrustLoop(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [score, showTrustLoop]);
 
   const toggleMiss = (type: MissType) => {
     Haptics.selectionAsync();
@@ -358,6 +371,22 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
             })}
         </View>
       </View>
+
+      {/* Trust Loop — Quick Feedback After Score Entry */}
+      {showTrustLoop && score !== null && (
+        <View className="px-6 py-5 border-t border-gold/8 bg-black/20">
+          <TrustLoop
+            hole={hole.hole_number}
+            par={hole.par}
+            score={score}
+            onSubmit={(data) => {
+              onTrustFeedback?.(data);
+              setShowTrustLoop(false);
+            }}
+            onSkip={() => setShowTrustLoop(false)}
+          />
+        </View>
+      )}
     </Card>
   );
 }
