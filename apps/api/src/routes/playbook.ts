@@ -28,6 +28,11 @@ const generateSchema = z.object({
   scoringGoal: z.string().min(1).max(200),
 });
 
+const notesSchema = z.object({
+  holeIndex: z.number().int().min(0).max(17),
+  note: z.string().max(500),
+});
+
 interface PlaybookResponse {
   pre_round_talk: string;
   projected_score: number;
@@ -217,4 +222,36 @@ playbookRoutes.get('/:id', async (c) => {
   }
 
   return c.json({ data: playbook });
+});
+
+// PATCH /playbook/:id/notes
+playbookRoutes.patch('/:id/notes', async (c) => {
+  const id = c.req.param('id');
+  const uuidSchema = z.string().uuid();
+  if (!uuidSchema.safeParse(id).success) {
+    return c.json({ error: 'Invalid playbook ID' }, 400);
+  }
+
+  const body = await c.req.json();
+  const parsed = notesSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 400);
+  }
+
+  const { holeIndex, note } = parsed.data;
+
+  // Fetch current caddieNotes
+  const [playbook] = await db.select().from(playbooks).where(eq(playbooks.id, id));
+  if (!playbook) return c.json({ error: 'Playbook not found' }, 404);
+
+  const notes: string[] = Array.isArray(playbook.caddieNotes)
+    ? [...(playbook.caddieNotes as string[])]
+    : Array(18).fill('');
+  notes[holeIndex] = note;
+
+  await db.update(playbooks)
+    .set({ caddieNotes: notes })
+    .where(eq(playbooks.id, id));
+
+  return c.json({ data: { ok: true } });
 });

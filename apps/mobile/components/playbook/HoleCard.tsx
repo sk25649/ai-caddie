@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, TextInput } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
@@ -13,6 +13,8 @@ interface HoleCardProps {
   onScore: (score: number | null) => void;
   onNext?: () => void;
   isCompetitionMode?: boolean;
+  note?: string;
+  onNote?: (note: string) => void;
 }
 
 type MissType = 'left' | 'right' | 'short' | null;
@@ -36,10 +38,11 @@ function scoreColor(d: number): string {
 }
 
 
-export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = false }: HoleCardProps) {
+export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = false, note, onNote }: HoleCardProps) {
   const [activeMiss, setActiveMiss] = useState<MissType>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [competitionRevealed, setCompetitionRevealed] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
   const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (nextTimerRef.current) clearTimeout(nextTimerRef.current); }, []);
@@ -236,6 +239,33 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
               ⚠️ DANGER
             </Text>
             <Text className="text-[17px] leading-7 text-cream">{hole.danger}</Text>
+          </View>
+
+          {/* Caddie Note — collapsible */}
+          <View className="mx-5 mt-4">
+            <Pressable onPress={() => setNoteOpen(!noteOpen)} className="flex-row items-center mt-3 mb-1">
+              <Text className="text-xs tracking-[2px] uppercase text-gold font-bold flex-1">
+                Caddie Note
+              </Text>
+              <Text className="text-gold text-xs">{noteOpen ? '▲' : '▼'}</Text>
+            </Pressable>
+            {!noteOpen && note ? (
+              <Text className="text-xs text-cream-dim italic" numberOfLines={1}>{note}</Text>
+            ) : null}
+            {noteOpen && (
+              <TextInput
+                className="bg-black/30 border border-gold/20 rounded-xl px-3 py-3 text-cream text-sm mt-1"
+                placeholder="e.g. Valley at 185 plays 20y longer. Green firm, back pin is dead."
+                placeholderTextColor="#b8a88855"
+                multiline
+                numberOfLines={3}
+                value={note ?? ''}
+                onChangeText={onNote}
+                onBlur={() => {}}
+                style={{ minHeight: 72, textAlignVertical: 'top' }}
+                accessibilityLabel="Caddie note"
+              />
+            )}
           </View>
 
           {/* Miss Buttons */}

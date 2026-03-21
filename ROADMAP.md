@@ -9,7 +9,7 @@
 - [x] Chunk 2: Add print-optimized fields to prompt schema
 - [ ] Chunk 3: Yardage book HTML template (server-side)
 - [ ] Chunk 4: PDF export in mobile app
-- [ ] Chunk 5: Practice round caddie notes
+- [x] Chunk 5: Practice round caddie notes
 - [x] Chunk 6: Competition on-course mode (Rule 4.3 compliant UI)
 
 ### Feature: Add Course CLI — In Progress
@@ -731,11 +731,11 @@ Every line of the yardage book is specific to THIS player's bag, THIS player's m
      ```
 
 **Acceptance criteria:**
-- [ ] A collapsible notes field appears on each hole card
-- [ ] Notes persist across app sessions (saved to API)
-- [ ] Notes inject into the playbook prompt when regenerating (visible in Claude's output — e.g., "caddie notes a hidden valley at 185 that plays 20 yards longer")
+- [x] A collapsible notes field appears on each hole card
+- [x] Notes persist across app sessions (saved to API)
+- [x] Notes inject into the playbook prompt when regenerating (visible in Claude's output — e.g., "caddie notes a hidden valley at 185 that plays 20 yards longer")
 - [ ] Notes appear in the yardage book PDF (added to the hole page in a CADDIE NOTES section)
-- [ ] TypeScript compiles without errors
+- [x] TypeScript compiles without errors
 
 ---
 

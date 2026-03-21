@@ -1,5 +1,5 @@
 import { ScrollView, View, Text, Pressable } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useRoundStore } from '../../stores/roundStore';
@@ -8,6 +8,7 @@ import { HoleCard } from '../../components/playbook/HoleCard';
 import { LiveScoreBar } from '../../components/playbook/LiveScoreBar';
 import { PreRoundTalk } from '../../components/playbook/PreRoundTalk';
 import { Button } from '../../components/ui/Button';
+import { updatePlaybookNote } from '../../lib/api';
 import type { TeeInfo } from '../../lib/api';
 
 export default function PlaybookScreen() {
@@ -19,8 +20,28 @@ export default function PlaybookScreen() {
   const setScore = useRoundStore((s) => s.setScore);
   const setCurrentHole = useRoundStore((s) => s.setCurrentHole);
   const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
+  const holeNotes = useRoundStore((s) => s.holeNotes);
+  const setHoleNote = useRoundStore((s) => s.setHoleNote);
 
   const [preRoundOpen, setPreRoundOpen] = useState(false);
+
+  const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleNoteChange = (holeIndex: number, note: string) => {
+    setHoleNote(holeIndex, note);
+    if (noteTimerRef.current) clearTimeout(noteTimerRef.current);
+    noteTimerRef.current = setTimeout(() => {
+      if (playbook?.id) {
+        updatePlaybookNote(playbook.id, holeIndex, note).catch(() => {});
+      }
+    }, 800);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (noteTimerRef.current) clearTimeout(noteTimerRef.current);
+    };
+  }, []);
 
   // Stop any in-progress speech when the user switches holes
   useEffect(() => {
@@ -124,6 +145,8 @@ export default function PlaybookScreen() {
           onScore={(score) => setScore(currentHole, score)}
           onNext={() => setCurrentHole(Math.min(currentHole + 1, 17))}
           isCompetitionMode={isCompetitionMode}
+          note={holeNotes[currentHole]}
+          onNote={(n) => handleNoteChange(currentHole, n)}
         />
       )}
 
