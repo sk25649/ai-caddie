@@ -56,8 +56,8 @@ async function callClaudeWithRetry(prompt: string): Promise<PlaybookResponse> {
       const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
       return JSON.parse(text) as PlaybookResponse;
     } catch (err) {
+      console.error(`[claude] attempt ${attempt + 1} failed:`, err);
       if (attempt === 1) throw err;
-      // Retry once on parse/API error
     }
   }
   throw new Error('Failed to generate playbook after retries');
@@ -183,10 +183,8 @@ playbookRoutes.post('/generate', async (c) => {
   try {
     playbookData = await callClaudeWithRetry(prompt);
   } catch (err) {
-    return c.json(
-      { error: 'Failed to generate playbook. Please try again.' },
-      502
-    );
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `Claude error: ${msg}` }, 502);
   }
 
   // Cache in DB
@@ -407,11 +405,9 @@ playbookRoutes.post('/generate-from-description', async (c) => {
   let playbookData: PlaybookResponse;
   try {
     playbookData = await callClaudeWithRetry(prompt);
-  } catch {
-    return c.json(
-      { error: 'Failed to generate playbook. Please try again.' },
-      502
-    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `Claude error: ${msg}` }, 502);
   }
 
   // Save to DB (courseId = null — no caching for custom courses)
