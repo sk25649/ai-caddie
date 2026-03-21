@@ -91,6 +91,7 @@ export function useElevenLabsVoice(): UseElevenLabsVoiceReturn {
       });
 
       setIsSpeaking(true);
+      player.playbackRate = 1.2;
       player.play();
     } catch (err) {
       console.error('[voice] speak failed:', err);

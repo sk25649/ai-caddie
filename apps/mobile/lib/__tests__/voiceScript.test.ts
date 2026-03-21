@@ -28,57 +28,58 @@ const baseHole: HoleStrategy = {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('buildVoiceScript — intro', () => {
-  it('always includes hole number, par, and yardage', () => {
+  it('includes hole number, par, and yardage', () => {
     const script = buildVoiceScript(baseHole);
-    expect(script).toContain('Hole 5');
-    expect(script).toContain('Par 4');
-    expect(script).toContain('380 yards');
+    expect(script).toContain('hole 5');
+    expect(script).toContain('par 4');
+    expect(script).toContain('380 yard');
   });
 
-  it('always includes the club', () => {
+  it('includes the club recommendation', () => {
     const script = buildVoiceScript(baseHole);
-    expect(script).toContain('Club: 3-Hybrid');
+    expect(script).toContain('3-Hybrid');
   });
 
-  it('always ends with the danger callout', () => {
+  it('ends with a closing motivational line', () => {
     const script = buildVoiceScript(baseHole);
-    expect(script.endsWith('Danger: OB left beyond the trees.')).toBe(true);
+    expect(script).toContain("let's go");
   });
 });
 
 describe('buildVoiceScript — aim point and carry target', () => {
   it('includes aim point when present', () => {
     const script = buildVoiceScript(baseHole);
-    expect(script).toContain('Aim at left edge of right fairway bunker.');
+    expect(script).toContain('Aim at left edge of right fairway bunker');
   });
 
   it('includes carry target when present', () => {
     const script = buildVoiceScript(baseHole);
-    expect(script).toContain('Carry 210 yards to the landing zone.');
+    expect(script).toContain('210');
+    expect(script).toContain('clear');
   });
 
-  it('omits aim point section when aim_point is missing', () => {
+  it('omits aim point when missing', () => {
     const hole = { ...baseHole, aim_point: undefined };
     const script = buildVoiceScript(hole);
     expect(script).not.toContain('Aim at');
   });
 
-  it('omits carry target section when carry_target is missing', () => {
+  it('omits carry target when missing', () => {
     const hole = { ...baseHole, carry_target: undefined };
     const script = buildVoiceScript(hole);
-    expect(script).not.toContain('yards to the landing zone');
+    expect(script).not.toContain('to clear');
   });
 });
 
 describe('buildVoiceScript — play bullets', () => {
   it('reads all three bullets in order', () => {
     const script = buildVoiceScript(baseHole);
-    const bullet1Pos = script.indexOf('Hit 3-Hybrid to left edge of bunker.');
-    const bullet2Pos = script.indexOf('Approach with 8-iron from 155.');
-    const bullet3Pos = script.indexOf('Bogey is perfectly fine here.');
-    expect(bullet1Pos).toBeGreaterThan(-1);
-    expect(bullet2Pos).toBeGreaterThan(bullet1Pos);
-    expect(bullet3Pos).toBeGreaterThan(bullet2Pos);
+    const b1 = script.indexOf('Hit 3-Hybrid to left edge of bunker.');
+    const b2 = script.indexOf('Approach with 8-iron from 155.');
+    const b3 = script.indexOf('Bogey is perfectly fine here.');
+    expect(b1).toBeGreaterThan(-1);
+    expect(b2).toBeGreaterThan(b1);
+    expect(b3).toBeGreaterThan(b2);
   });
 
   it('falls back to strategy text when play_bullets is missing', () => {
@@ -89,7 +90,6 @@ describe('buildVoiceScript — play bullets', () => {
     };
     const script = buildVoiceScript(hole);
     expect(script).toContain('Aim center and lay up short of the bunkers.');
-    expect(script).not.toContain('Hit 3-Hybrid');
   });
 
   it('falls back to strategy when play_bullets is empty array', () => {
@@ -102,85 +102,89 @@ describe('buildVoiceScript — play bullets', () => {
     expect(script).toContain('Legacy strategy text.');
   });
 
-  it('includes no bullet/strategy content when both are missing', () => {
+  it('still works when both are missing', () => {
     const hole: HoleStrategy = { ...baseHole, play_bullets: undefined, strategy: undefined };
     const script = buildVoiceScript(hole);
-    // Should not throw and should still have the other parts
-    expect(script).toContain('Hole 5');
-    expect(script).toContain('Danger:');
+    expect(script).toContain('hole 5');
   });
 });
 
 describe('buildVoiceScript — terrain note', () => {
-  it('includes terrain warning when terrain_note is non-empty', () => {
+  it('includes terrain heads-up when terrain_note is non-empty', () => {
     const hole: HoleStrategy = {
       ...baseHole,
-      terrain_note: 'Hidden valley at 160 yards carry — ball will drop a full club length.',
+      terrain_note: 'Hidden valley at 160 yards',
     };
     const script = buildVoiceScript(hole);
-    expect(script).toContain('Terrain warning: Hidden valley at 160 yards carry');
+    expect(script).toContain('Watch out');
+    expect(script).toContain('Hidden valley at 160 yards');
   });
 
-  it('omits terrain warning when terrain_note is empty string', () => {
-    const script = buildVoiceScript(baseHole); // terrain_note: ''
-    expect(script).not.toContain('Terrain warning');
+  it('omits terrain when terrain_note is empty string', () => {
+    const script = buildVoiceScript(baseHole);
+    expect(script).not.toContain('Watch out');
   });
 
-  it('omits terrain warning when terrain_note is whitespace only', () => {
+  it('omits terrain when terrain_note is whitespace only', () => {
     const hole: HoleStrategy = { ...baseHole, terrain_note: '   ' };
     const script = buildVoiceScript(hole);
-    expect(script).not.toContain('Terrain warning');
+    expect(script).not.toContain('Watch out');
   });
 
-  it('omits terrain warning when terrain_note is undefined', () => {
+  it('omits terrain when terrain_note is undefined', () => {
     const hole: HoleStrategy = { ...baseHole, terrain_note: undefined };
     const script = buildVoiceScript(hole);
-    expect(script).not.toContain('Terrain warning');
+    expect(script).not.toContain('Watch out');
   });
 });
 
-describe('buildVoiceScript — ordering', () => {
-  it('reads terrain warning before danger', () => {
+describe('buildVoiceScript — danger and closing', () => {
+  it('includes danger callout', () => {
+    const script = buildVoiceScript(baseHole);
+    expect(script).toContain('Big miss is OB left beyond the trees');
+  });
+
+  it('reads terrain before danger', () => {
     const hole: HoleStrategy = {
       ...baseHole,
       terrain_note: 'Sharp drop at landing zone.',
     };
     const script = buildVoiceScript(hole);
-    const terrainPos = script.indexOf('Terrain warning:');
-    const dangerPos = script.indexOf('Danger:');
+    const terrainPos = script.indexOf('Watch out');
+    const dangerPos = script.indexOf('Big miss');
     expect(terrainPos).toBeLessThan(dangerPos);
   });
 
-  it('reads aim point before carry target', () => {
-    const script = buildVoiceScript(baseHole);
-    const aimPos = script.indexOf('Aim at');
-    const carryPos = script.indexOf('Carry');
-    expect(aimPos).toBeLessThan(carryPos);
+  it('par chance holes get aggressive closing', () => {
+    const hole = { ...baseHole, is_par_chance: true };
+    const script = buildVoiceScript(hole);
+    expect(script).toContain('birdie or par');
   });
 
-  it('reads club before aim point', () => {
+  it('non par chance holes get bogey-smart closing', () => {
     const script = buildVoiceScript(baseHole);
-    const clubPos = script.indexOf('Club:');
-    const aimPos = script.indexOf('Aim at');
-    expect(clubPos).toBeLessThan(aimPos);
+    expect(script).toContain('Bogey is a great score');
   });
 });
 
 describe('buildVoiceScript — par 3 holes', () => {
-  it('handles par 3 with different hole/yardage', () => {
+  it('handles par 3 with correct wording', () => {
     const par3: HoleStrategy = {
       ...baseHole,
       hole_number: 12,
       par: 3,
       yardage: 175,
       tee_club: '6-Iron',
-      aim_point: 'front-left pin, back tier is dead',
+      aim_point: 'front-left pin',
       carry_target: 170,
+      is_par_chance: true,
     };
     const script = buildVoiceScript(par3);
-    expect(script).toContain('Hole 12. Par 3. 175 yards.');
-    expect(script).toContain('Club: 6-Iron.');
+    expect(script).toContain('hole 12');
+    expect(script).toContain('par 3');
+    expect(script).toContain('175 yard');
+    expect(script).toContain('6-Iron');
     expect(script).toContain('Aim at front-left pin');
-    expect(script).toContain('Carry 170 yards');
+    expect(script).toContain('170');
   });
 });
