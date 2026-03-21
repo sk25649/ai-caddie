@@ -140,7 +140,7 @@ describe('POST /playbook/generate — fresh generation', () => {
 
     const res = await authedPost(VALID_BODY);
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toContain('Failed to generate playbook');
+    expect((await res.json()).error).toContain('Claude API down');
   });
 
   it('retries when Claude returns non-text content type (treats as empty → invalid JSON)', async () => {

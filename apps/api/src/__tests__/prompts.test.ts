@@ -235,14 +235,13 @@ describe('CADDIE_SYSTEM_PROMPT — structured output schema', () => {
     expect(CADDIE_SYSTEM_PROMPT).toContain('terrain_note');
   });
 
-  it('includes terrain CRITICAL RULE about elevation and valleys', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('TERRAIN');
-    expect(CADDIE_SYSTEM_PROMPT).toContain('elevationChange');
-    expect(CADDIE_SYSTEM_PROMPT).toContain('valleys');
+  it('includes terrain_note guidance about drops and valleys', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('terrain_note');
+    expect(CADDIE_SYSTEM_PROMPT).toContain('valley');
   });
 
-  it('includes aim point specificity CRITICAL RULE', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('AIM POINT');
+  it('includes aim point specificity guidance', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('aim_point');
     expect(CADDIE_SYSTEM_PROMPT).toContain('visual landmark');
   });
 
@@ -287,29 +286,29 @@ describe('buildPlaybookPrompt — course and tee data', () => {
   });
 });
 
-describe('CADDIE_SYSTEM_PROMPT — print-optimized fields (chunk 2)', () => {
-  it('includes do_this field in schema', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('"do_this"');
+describe('CADDIE_SYSTEM_PROMPT — lean schema fields', () => {
+  it('includes play_bullets field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"play_bullets"');
   });
 
-  it('includes dont_do field in schema', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('"dont_do"');
+  it('includes terrain_note field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"terrain_note"');
   });
 
-  it('includes approach_club field in schema', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('"approach_club"');
+  it('includes carry_target field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"carry_target"');
   });
 
-  it('includes approach_distance field in schema', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('"approach_distance"');
+  it('includes aim_point field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"aim_point"');
   });
 
-  it('includes DO_THIS critical rule', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('DO_THIS:');
+  it('includes bogey-first rule', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('Bogey');
   });
 
-  it('includes DONT_DO critical rule', () => {
-    expect(CADDIE_SYSTEM_PROMPT).toContain('DONT_DO:');
+  it('includes word limit guidance', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('words');
   });
 
   it('buildPlaybookPrompt returns a non-empty string with minimal valid args', () => {

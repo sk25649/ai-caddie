@@ -17,6 +17,7 @@ import { profileRoutes } from './routes/profile';
 import { courseRoutes } from './routes/courses';
 import { playbookRoutes } from './routes/playbook';
 import { roundRoutes } from './routes/rounds';
+import { voiceRoutes } from './routes/voice';
 
 const app = new Hono();
 
@@ -34,6 +35,7 @@ app.route('/profile', profileRoutes);
 app.route('/courses', courseRoutes);
 app.route('/playbook', playbookRoutes);
 app.route('/rounds', roundRoutes);
+app.route('/voice', voiceRoutes);
 
 app.get('/', (c) => c.json({ status: 'ok' }));
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
