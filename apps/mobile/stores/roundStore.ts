@@ -49,7 +49,7 @@ interface RoundState {
   setCustomCourse: (name: string, tee: string, description: string, city?: string, state?: string) => void;
   setStreamingStatus: (status: StreamingStatus) => void;
   addStreamingHole: (hole: HoleStrategy) => void;
-  setStreamingMeta: (meta: { pre_round_talk: string; projected_score: number; driver_holes: number[]; par_chance_holes: number[] }) => void;
+  setStreamingMeta: (meta: { pre_round_talk: string; projected_score: number; driver_holes: number[]; par_chance_holes: number[] } | null) => void;
   reset: () => void;
 }
 

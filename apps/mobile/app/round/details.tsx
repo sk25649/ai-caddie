@@ -101,9 +101,10 @@ export default function DetailsScreen() {
         }
       );
     } else if (course && tee) {
-      // Use streaming generation — navigate immediately
+      // Use streaming generation — navigate to playbook immediately
       setStreamingStatus('streaming');
       setStreamError(null);
+      setStreamingMeta(null);
       router.push('/round/playbook');
 
       generatePlaybookStream(

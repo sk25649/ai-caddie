@@ -284,6 +284,42 @@ export interface StreamCallbacks {
   onError: (error: string) => void;
 }
 
+function parseSSEEvents(text: string, callbacks: StreamCallbacks): void {
+  const parts = text.split('\n\n');
+  for (const part of parts) {
+    if (!part.trim()) continue;
+    const lines = part.split('\n');
+    const eventLine = lines.find((l) => l.startsWith('event:'));
+    const dataLine = lines.find((l) => l.startsWith('data:'));
+    if (!eventLine || !dataLine) continue;
+
+    const eventType = eventLine.slice(7);
+    const data = dataLine.slice(6);
+
+    try {
+      switch (eventType) {
+        case 'meta':
+          callbacks.onMeta(JSON.parse(data));
+          break;
+        case 'hole':
+          callbacks.onHole(JSON.parse(data));
+          break;
+        case 'done':
+          callbacks.onDone(JSON.parse(data));
+          break;
+        case 'complete':
+          callbacks.onComplete(JSON.parse(data));
+          break;
+        case 'error':
+          callbacks.onError(JSON.parse(data).error);
+          break;
+      }
+    } catch {
+      // Skip malformed events
+    }
+  }
+}
+
 export async function generatePlaybookStream(
   params: GeneratePlaybookParams,
   callbacks: StreamCallbacks
@@ -299,59 +335,47 @@ export async function generatePlaybookStream(
   });
 
   if (!response.ok) {
-    const json = await response.json();
-    throw new ApiError(json.error || 'Stream request failed', response.status, json.details);
-  }
-
-  const reader = response.body?.getReader();
-  if (!reader) throw new ApiError('No response body', 500);
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-
-    // Parse SSE events from buffer
-    const parts = buffer.split('\n\n');
-    buffer = parts.pop() || ''; // keep incomplete last part
-
-    for (const part of parts) {
-      if (!part.trim()) continue;
-      const lines = part.split('\n');
-      const eventLine = lines.find((l) => l.startsWith('event:'));
-      const dataLine = lines.find((l) => l.startsWith('data:'));
-      if (!eventLine || !dataLine) continue;
-
-      const eventType = eventLine.slice(7);
-      const data = dataLine.slice(6);
-
-      try {
-        switch (eventType) {
-          case 'meta':
-            callbacks.onMeta(JSON.parse(data));
-            break;
-          case 'hole':
-            callbacks.onHole(JSON.parse(data));
-            break;
-          case 'done':
-            callbacks.onDone(JSON.parse(data));
-            break;
-          case 'complete':
-            callbacks.onComplete(JSON.parse(data));
-            break;
-          case 'error':
-            callbacks.onError(JSON.parse(data).error);
-            break;
-        }
-      } catch {
-        // Skip malformed events
-      }
+    const text = await response.text();
+    try {
+      const json = JSON.parse(text);
+      throw new ApiError(json.error || 'Stream request failed', response.status, json.details);
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+      throw new ApiError('Stream request failed', response.status);
     }
   }
+
+  // Try ReadableStream first (works in web, newer RN builds)
+  // Fall back to response.text() (works everywhere in React Native)
+  if (response.body && typeof response.body.getReader === 'function') {
+    try {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          parseSSEEvents(part + '\n\n', callbacks);
+        }
+      }
+      // Process remaining buffer
+      if (buffer.trim()) parseSSEEvents(buffer, callbacks);
+      return;
+    } catch {
+      // ReadableStream failed — fall through to text() approach
+    }
+  }
+
+  // Fallback: read entire response as text and parse all events
+  const text = await response.text();
+  parseSSEEvents(text, callbacks);
 }
 
 export interface GeneratePlaybookFromDescriptionParams {
