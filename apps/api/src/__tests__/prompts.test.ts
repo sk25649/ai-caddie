@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPlaybookPrompt, CADDIE_SYSTEM_PROMPT } from '../lib/prompts';
+import { buildPlaybookPrompt, buildCustomCoursePrompt, CADDIE_SYSTEM_PROMPT } from '../lib/prompts';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -316,5 +316,69 @@ describe('CADDIE_SYSTEM_PROMPT — print-optimized fields (chunk 2)', () => {
     const result = buildPlaybookPrompt(baseProfile, baseCourse, 'White', baseWeather, 'Break 90');
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+// ── buildCustomCoursePrompt ────────────────────────────────────────────────
+
+describe('buildCustomCoursePrompt', () => {
+  const description = 'Hole 1: Par 4, 385 yards. Dogleg right at 210. OB left entire hole. Hole 2: Par 3, 165 yards. Green guarded by water front-left.';
+
+  it('includes the course description verbatim', () => {
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
+    expect(result).toContain(description);
+  });
+
+  it('includes player profile data', () => {
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
+    expect(result).toContain('Sam');
+    expect(result).toContain('18');
+    expect(result).toContain('High hook left');
+    expect(result).toContain('Break 90');
+  });
+
+  it('includes clubs with carry distances', () => {
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
+    expect(result).toContain('Driver: 240 yds carry');
+    expect(result).toContain('3-Hybrid: 210 yds carry');
+    expect(result).toContain('FAIRWAY FINDER');
+  });
+
+  it('includes course name and tee name', () => {
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
+    expect(result).toContain('Riviera CC');
+    expect(result).toContain('Blue');
+  });
+
+  it('includes weather data', () => {
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
+    expect(result).toContain('72°F');
+    expect(result).toContain('10 mph');
+  });
+
+  it('injects caddie notes when provided', () => {
+    const notes = Array(18).fill('') as string[];
+    notes[0] = 'Valley at 185 plays 20y longer';
+    notes[4] = 'Green always firm, back pin is dead';
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description, notes);
+    expect(result).toContain('Valley at 185 plays 20y longer');
+    expect(result).toContain('Green always firm');
+    expect(result).toContain('CADDIE NOTES');
+  });
+
+  it('omits caddie notes section when notes are all empty', () => {
+    const notes = Array(18).fill('') as string[];
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description, notes);
+    expect(result).not.toContain('CADDIE NOTES');
+  });
+
+  it('omits caddie notes section when no notes passed', () => {
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
+    expect(result).not.toContain('CADDIE NOTES');
+  });
+
+  it('includes instruction to work with incomplete hole data', () => {
+    const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
+    expect(result).toContain('Work with what you have');
   });
 });

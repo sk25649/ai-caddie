@@ -5,7 +5,7 @@
 ## Progress
 
 ### Feature: Competitive Mode — Pending
-- [ ] Chunk 1: Any-course playbook via text description
+- [x] Chunk 1: Any-course playbook via text description
 - [x] Chunk 2: Add print-optimized fields to prompt schema
 - [x] Chunk 3: Yardage book HTML template (server-side)
 - [ ] Chunk 4: PDF export in mobile app
@@ -424,11 +424,11 @@ Every line of the yardage book is specific to THIS player's bag, THIS player's m
    - If false: existing `generatePlaybook` call (no change)
 
 **Acceptance criteria:**
-- [ ] A caddie can type a course description and generate a full 18-hole playbook
-- [ ] The playbook renders identically to a DB-sourced playbook — same HoleCard, same voice, same scoring
-- [ ] "Enter course manually" is discoverable from the course select screen
-- [ ] If only 9 holes are described, Claude generates 9 strategies (no crash)
-- [ ] TypeScript compiles without errors
+- [x] A caddie can type a course description and generate a full 18-hole playbook
+- [x] The playbook renders identically to a DB-sourced playbook — same HoleCard, same voice, same scoring
+- [x] "Enter course manually" is discoverable from the course select screen
+- [x] If only 9 holes are described, Claude generates 9 strategies (no crash)
+- [x] TypeScript compiles without errors
 
 **Key decisions:**
 - No caching for custom-course playbooks on the same key as DB playbooks — they use `courseId = null` so the cache check won't match. Each generation is fresh. This is acceptable since the caddie's notes may change between practice round and competition day.

@@ -72,6 +72,16 @@ export default function CourseSelectScreen() {
               No courses found
             </Text>
           }
+          ListFooterComponent={
+            <Pressable
+              onPress={() => { Haptics.selectionAsync(); router.push('/round/custom-course'); }}
+              className="mt-2 mb-4 py-4 items-center border border-gold/15 rounded-xl bg-black/20"
+            >
+              <Text className="text-sm text-gold font-semibold">
+                Playing a course not listed? Enter it manually →
+              </Text>
+            </Pressable>
+          }
         />
       )}
     </SafeAreaView>

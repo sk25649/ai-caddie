@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useRoundStore } from '../../stores/roundStore';
-import { useGeneratePlaybook } from '../../hooks/usePlaybook';
+import { useGeneratePlaybook, useGeneratePlaybookFromDescription } from '../../hooks/usePlaybook';
 import { Button } from '../../components/ui/Button';
 
 const SCORING_GOALS = [
@@ -47,7 +47,14 @@ export default function DetailsScreen() {
   const setPlaybook = useRoundStore((s) => s.setPlaybook);
   const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
   const setCompetitionMode = useRoundStore((s) => s.setCompetitionMode);
+  const isCustomCourse = useRoundStore((s) => s.isCustomCourse);
+  const customCourseName = useRoundStore((s) => s.customCourseName);
+  const customCourseTeeName = useRoundStore((s) => s.customCourseTeeName);
+  const customCourseDescription = useRoundStore((s) => s.customCourseDescription);
+  const customCourseCity = useRoundStore((s) => s.customCourseCity);
+  const customCourseState = useRoundStore((s) => s.customCourseState);
   const generatePlaybook = useGeneratePlaybook();
+  const generateFromDescription = useGeneratePlaybookFromDescription();
 
   const today = formatDate(new Date());
   const tomorrow = formatDate(new Date(Date.now() + 86400000));
@@ -56,38 +63,58 @@ export default function DetailsScreen() {
   const [scoringGoal, setScoringGoal] = useState('');
 
   useEffect(() => {
-    if (!course || !tee) router.back();
-  }, [course, tee, router]);
+    if (!isCustomCourse && (!course || !tee)) router.back();
+  }, [isCustomCourse, course, tee, router]);
 
-  if (!course || !tee) return null;
+  if (!isCustomCourse && (!course || !tee)) return null;
 
   const handleGenerate = () => {
     if (!scoringGoal) return;
-
     setRoundDetails(roundDate, teeTime, scoringGoal);
 
-    generatePlaybook.mutate(
-      {
-        courseId: course.id,
-        teeName: tee,
-        roundDate,
-        teeTime,
-        scoringGoal,
-      },
-      {
-        onSuccess: (playbook) => {
-          setPlaybook(playbook);
-          router.push('/round/playbook');
+    if (isCustomCourse && customCourseName && customCourseTeeName && customCourseDescription) {
+      generateFromDescription.mutate(
+        {
+          courseName: customCourseName,
+          teeName: customCourseTeeName,
+          courseDescription: customCourseDescription,
+          roundDate,
+          teeTime,
+          scoringGoal,
+          city: customCourseCity ?? undefined,
+          state: customCourseState ?? undefined,
         },
-      }
-    );
+        {
+          onSuccess: (playbook) => {
+            setPlaybook(playbook);
+            router.push('/round/playbook');
+          },
+        }
+      );
+    } else if (course && tee) {
+      generatePlaybook.mutate(
+        {
+          courseId: course.id,
+          teeName: tee,
+          roundDate,
+          teeTime,
+          scoringGoal,
+        },
+        {
+          onSuccess: (playbook) => {
+            setPlaybook(playbook);
+            router.push('/round/playbook');
+          },
+        }
+      );
+    }
   };
 
   return (
     <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
       <View className="pt-6 pb-6">
         <Text className="text-cream-dim text-sm mb-1">
-          {course.name} · {tee} Tees
+          {isCustomCourse ? customCourseName : course?.name} · {isCustomCourse ? customCourseTeeName : tee} Tees
         </Text>
         <Text className="text-2xl text-white" style={{ fontFamily: 'serif' }}>
           Round Details
@@ -201,20 +228,20 @@ export default function DetailsScreen() {
         </View>
       </View>
 
-      {generatePlaybook.isPending && (
+      {(generatePlaybook.isPending || generateFromDescription.isPending) && (
         <View className="items-center py-10">
           <Text className="text-3xl mb-4">🏌️‍♂️</Text>
           <Text className="text-lg text-gold font-semibold mb-2">
             Your caddie is studying the course...
           </Text>
           <Text className="text-cream-dim text-center leading-5">
-            Analyzing {course.name} with your game profile, weather conditions,
+            Analyzing {isCustomCourse ? customCourseName : course?.name} with your game profile, weather conditions,
             and scoring goals.
           </Text>
         </View>
       )}
 
-      {generatePlaybook.isError && (
+      {(generatePlaybook.isError || generateFromDescription.isError) && (
         <View className="bg-danger/12 border border-danger/20 rounded-xl p-4 mb-4">
           <Text className="text-danger font-semibold">
             Failed to generate playbook. Please try again.
@@ -223,10 +250,10 @@ export default function DetailsScreen() {
       )}
 
       <Button
-        title={generatePlaybook.isPending ? 'Generating...' : 'Generate Playbook'}
+        title={(generatePlaybook.isPending || generateFromDescription.isPending) ? 'Generating...' : 'Generate Playbook'}
         onPress={handleGenerate}
-        loading={generatePlaybook.isPending}
-        disabled={!scoringGoal || generatePlaybook.isPending}
+        loading={generatePlaybook.isPending || generateFromDescription.isPending}
+        disabled={!scoringGoal || generatePlaybook.isPending || generateFromDescription.isPending}
       />
 
       <View className="h-10" />

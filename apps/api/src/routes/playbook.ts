@@ -11,7 +11,7 @@ import {
 import type { HoleStrategy } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
-import { CADDIE_SYSTEM_PROMPT, buildPlaybookPrompt } from '../lib/prompts';
+import { CADDIE_SYSTEM_PROMPT, buildPlaybookPrompt, buildCustomCoursePrompt } from '../lib/prompts';
 import { authMiddleware } from './auth';
 import type { AppEnv } from '../lib/types';
 
@@ -291,4 +291,117 @@ playbookRoutes.patch('/:id/notes', async (c) => {
     .where(eq(playbooks.id, id));
 
   return c.json({ data: { ok: true } });
+});
+
+// POST /playbook/generate-from-description
+const generateFromDescriptionSchema = z.object({
+  courseName: z.string().min(1).max(200),
+  teeName: z.string().min(1).max(50),
+  courseDescription: z.string().min(1).max(10000),
+  roundDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  teeTime: z.string().regex(/^\d{2}:\d{2}$/),
+  scoringGoal: z.string().min(1).max(200),
+  city: z.string().max(100).optional(),
+  state: z.string().max(50).optional(),
+});
+
+playbookRoutes.post('/generate-from-description', async (c) => {
+  const userId = c.get('userId') as string;
+  const body = await c.req.json();
+  const parsed = generateFromDescriptionSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      400
+    );
+  }
+
+  const { courseName, teeName, courseDescription, roundDate, teeTime, scoringGoal, city, state } = parsed.data;
+
+  // Get player profile + clubs
+  const [profile] = await db
+    .select()
+    .from(playerProfiles)
+    .where(eq(playerProfiles.userId, userId));
+
+  if (!profile) {
+    return c.json({ error: 'Profile not found. Complete onboarding first.' }, 404);
+  }
+
+  const clubs = await db
+    .select()
+    .from(playerClubs)
+    .where(eq(playerClubs.profileId, profile.id))
+    .orderBy(playerClubs.sortOrder);
+
+  // Fetch weather by geocoding city/state (best-effort, non-fatal)
+  let forecast: Record<string, unknown> = {};
+  if (city && process.env.OPENWEATHER_KEY) {
+    try {
+      const geoRes = await fetch(
+        `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city + (state ? ',' + state : '') + ',US')}&limit=1&appid=${process.env.OPENWEATHER_KEY}`
+      );
+      if (geoRes.ok) {
+        const geoData = await geoRes.json() as Array<{ lat: number; lon: number }>;
+        if (geoData[0]) {
+          const { lat, lon } = geoData[0];
+          const weatherRes = await fetch(
+            `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely,alerts&units=imperial&appid=${process.env.OPENWEATHER_KEY}`
+          );
+          if (weatherRes.ok) {
+            const weather = await weatherRes.json();
+            const teeHour = parseInt(teeTime.split(':')[0]);
+            forecast =
+              weather.hourly?.find(
+                (h: { dt: number }) => new Date(h.dt * 1000).getHours() === teeHour
+              ) || weather.current || {};
+          }
+        }
+      }
+    } catch {
+      // Weather fetch failed — proceed without it
+    }
+  }
+
+  // Build prompt and call Claude
+  const prompt = buildCustomCoursePrompt(
+    { ...profile, clubs },
+    courseName,
+    teeName,
+    forecast as { temp?: number; wind_speed?: number; wind_deg?: number; weather?: Array<{ description: string }> },
+    scoringGoal,
+    courseDescription
+  );
+
+  let playbookData: PlaybookResponse;
+  try {
+    playbookData = await callClaudeWithRetry(prompt);
+  } catch {
+    return c.json(
+      { error: 'Failed to generate playbook. Please try again.' },
+      502
+    );
+  }
+
+  // Save to DB (courseId = null — no caching for custom courses)
+  const [saved] = await db
+    .insert(playbooks)
+    .values({
+      profileId: profile.id,
+      courseId: null,
+      teeName,
+      scoringGoal,
+      roundDate,
+      teeTime,
+      weatherConditions: forecast,
+      preRoundTalk: playbookData.pre_round_talk,
+      holeStrategies: playbookData.holes,
+      projectedScore: playbookData.projected_score,
+      driverHoles: playbookData.driver_holes,
+      parChanceHoles: playbookData.par_chance_holes,
+    })
+    .returning();
+
+  return c.json({ data: saved }, 201);
 });

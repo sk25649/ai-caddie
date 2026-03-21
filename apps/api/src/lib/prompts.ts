@@ -183,6 +183,68 @@ ${JSON.stringify(holesData, null, 2)}
 Generate a personalized playbook for this player on this course today.`;
 }
 
+export function buildCustomCoursePrompt(
+  profile: PlayerWithClubs,
+  courseName: string,
+  teeName: string,
+  weather: WeatherData,
+  scoringGoal: string,
+  courseDescription: string,
+  caddieNotes?: string[]
+): string {
+  const clubs = profile.clubs
+    .sort((a, b) => (b.carryDistance || 0) - (a.carryDistance || 0))
+    .map(
+      (c) =>
+        `${c.clubName}: ${c.carryDistance} yds carry` +
+        (c.isFairwayFinder ? ' \u2605 FAIRWAY FINDER' : '')
+    )
+    .join('\n');
+
+  const windDeg = weather?.wind_deg ?? 0;
+  const windSpeed = weather?.wind_speed ?? 0;
+  const temp = weather?.temp ?? 72;
+  const conditions = weather?.weather?.[0]?.description ?? 'clear';
+  const compass = degreesToCompass(windDeg);
+
+  const notesSection = caddieNotes?.some((n) => n)
+    ? `\nCADDIE NOTES (from practice round):\n${caddieNotes
+        .map((n, i) => (n ? `Hole ${i + 1}: ${n}` : ''))
+        .filter(Boolean)
+        .join('\n')}`
+    : '';
+
+  return `
+PLAYER PROFILE:
+- Name: ${profile.displayName}
+- Handicap: ${profile.handicap || 'Not established'}
+- Stock shot shape: ${profile.stockShape}
+- Primary miss: ${profile.missPrimary}
+- Secondary miss: ${profile.missSecondary}
+- Miss notes: ${profile.missDescription || 'None'}
+- Scoring goal today: ${scoringGoal}
+- Dream: ${profile.dreamScore} | Goal: ${profile.goalScore} | Floor: ${profile.floorScore}
+
+CLUBS IN BAG:
+${clubs}
+
+COURSE: ${courseName}
+TEE: ${teeName}
+
+WEATHER AT TEE TIME:
+- Temperature: ${Math.round(temp)}\u00B0F
+- Wind: ${Math.round(windSpeed)} mph from ${compass} (${windDeg}\u00B0)
+- Conditions: ${conditions}
+
+COURSE DESCRIPTION (provided by caddie):
+${courseDescription}
+${notesSection}
+
+Generate a playbook for each hole described. If the caddie described all 18 holes, produce 18 strategies. If fewer, produce strategies for the holes described and use your knowledge of the course to fill gaps. The caddie may have described holes informally — extract par, yardage, and hazards from context. Ask for nothing. Work with what you have.
+
+Generate a personalized playbook for this player on this course today.`;
+}
+
 function degreesToCompass(deg: number): string {
   const dirs = [
     'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',

@@ -107,8 +107,7 @@ export const playbooks = pgTable(
       .references(() => playerProfiles.id, { onDelete: 'cascade' })
       .notNull(),
     courseId: uuid('course_id')
-      .references(() => courses.id)
-      .notNull(),
+      .references(() => courses.id),
 
     teeName: text('tee_name').notNull(),
     scoringGoal: text('scoring_goal'),

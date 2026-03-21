@@ -267,6 +267,23 @@ export async function generatePlaybook(params: GeneratePlaybookParams): Promise<
   return api.post<Playbook>('/playbook/generate', params);
 }
 
+export interface GeneratePlaybookFromDescriptionParams {
+  courseName: string;
+  teeName: string;
+  courseDescription: string;
+  roundDate: string;
+  teeTime: string;
+  scoringGoal: string;
+  city?: string;
+  state?: string;
+}
+
+export async function generatePlaybookFromDescription(
+  params: GeneratePlaybookFromDescriptionParams
+): Promise<Playbook> {
+  return api.post<Playbook>('/playbook/generate-from-description', params);
+}
+
 export async function getPlaybook(id: string): Promise<Playbook> {
   return api.get<Playbook>(`/playbook/${id}`);
 }
