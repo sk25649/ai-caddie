@@ -3,7 +3,6 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import { sql } from 'drizzle-orm';
 import { db } from './db';
 import { authRoutes } from './routes/auth';
 import { profileRoutes } from './routes/profile';
@@ -28,14 +27,12 @@ app.route('/courses', courseRoutes);
 app.route('/playbook', playbookRoutes);
 app.route('/rounds', roundRoutes);
 
-app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
-
-app.get('/db-check', async (c) => {
+app.get('/health', async (c) => {
   try {
-    await db.execute(sql`SELECT 1`);
-    return c.json({ db: 'ok' });
+    await db.execute('SELECT 1');
+    return c.json({ status: 'ok', db: 'ok', timestamp: new Date().toISOString() });
   } catch (err) {
-    return c.json({ db: 'error', message: String(err) }, 500);
+    return c.json({ status: 'ok', db: 'error', error: String(err), timestamp: new Date().toISOString() });
   }
 });
 
@@ -55,5 +52,13 @@ async function start() {
   serve({ fetch: app.fetch, port });
   console.log(`AI Caddie API running on port ${port}`);
 }
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRASH] Unhandled rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH] Uncaught exception:', err);
+});
 
 start();
