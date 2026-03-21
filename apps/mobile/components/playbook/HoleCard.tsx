@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { useState } from 'react';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 import type { HoleStrategy } from '../../lib/api';
 import { Card } from '../ui/Card';
 import { SectionLabel } from '../ui/SectionLabel';
@@ -31,12 +32,56 @@ function scoreColor(d: number): string {
   return '#cc3333';
 }
 
+function buildVoiceScript(hole: HoleStrategy): string {
+  const parts: string[] = [
+    `Hole ${hole.hole_number}. Par ${hole.par}. ${hole.yardage} yards.`,
+    `Club: ${hole.tee_club}.`,
+  ];
+
+  if (hole.aim_point) {
+    parts.push(`Aim at ${hole.aim_point}.`);
+  }
+  if (hole.carry_target) {
+    parts.push(`Carry ${hole.carry_target} yards to the landing zone.`);
+  }
+
+  if (hole.play_bullets && hole.play_bullets.length > 0) {
+    hole.play_bullets.forEach((b) => parts.push(b));
+  } else if (hole.strategy) {
+    parts.push(hole.strategy);
+  }
+
+  if (hole.terrain_note && hole.terrain_note.trim().length > 0) {
+    parts.push(`Terrain warning: ${hole.terrain_note}`);
+  }
+
+  parts.push(`Danger: ${hole.danger}`);
+
+  return parts.join(' ');
+}
+
 export function HoleCard({ hole, score, onScore }: HoleCardProps) {
   const [activeMiss, setActiveMiss] = useState<MissType>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const toggleMiss = (type: MissType) => {
     Haptics.selectionAsync();
     setActiveMiss(activeMiss === type ? null : type);
+  };
+
+  const handleVoice = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+    } else {
+      setIsSpeaking(true);
+      Speech.speak(buildVoiceScript(hole), {
+        rate: 0.9,
+        onDone: () => setIsSpeaking(false),
+        onStopped: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false),
+      });
+    }
   };
 
   const handleScore = (value: number) => {
@@ -82,13 +127,23 @@ export function HoleCard({ hole, score, onScore }: HoleCardProps) {
             )}
           </Text>
         </View>
-        <View className="items-end">
-          <Text className="text-[38px] text-gold" style={{ fontFamily: 'serif' }}>
-            {hole.yardage}
-          </Text>
-          <Text className="text-sm text-cream-dim font-semibold">
-            YDS · PAR {hole.par}
-          </Text>
+        <View className="flex-row items-center gap-3">
+          {/* Voice button */}
+          <Pressable
+            onPress={handleVoice}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: isSpeaking ? 'rgba(212,168,67,0.2)' : 'rgba(255,255,255,0.08)' }}
+          >
+            <Text className="text-[20px]">{isSpeaking ? '⏹' : '🔊'}</Text>
+          </Pressable>
+          <View className="items-end">
+            <Text className="text-[38px] text-gold" style={{ fontFamily: 'serif' }}>
+              {hole.yardage}
+            </Text>
+            <Text className="text-sm text-cream-dim font-semibold">
+              YDS · PAR {hole.par}
+            </Text>
+          </View>
         </View>
       </View>
 

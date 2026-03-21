@@ -4,17 +4,17 @@
 
 ## Progress
 
-### Feature: Voice Caddie + Scan-First Hole Cards — In Progress
+### Feature: Voice Caddie + Scan-First Hole Cards — Complete
 - [x] Chunk 1: Prompt schema — add aim_point, carry_target, play_bullets, terrain_note
 - [x] Chunk 2: HoleCard visual redesign — scan-first layout
-- [ ] Chunk 3: Voice readout — one-tap audio caddie
+- [x] Chunk 3: Voice readout — one-tap audio caddie
 
 ---
 
 ## Feature: Voice Caddie + Scan-First Hole Cards
 
 **Created:** 2026-03-21
-**Status:** In Progress
+**Status:** Complete
 **Estimated effort:** ~35 min total
 
 **Goal:** Make the playbook usable mid-round with zero reading — scannable visual cards with a specific aim point + one-tap audio caddie.
