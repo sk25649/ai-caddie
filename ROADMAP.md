@@ -6,7 +6,7 @@
 
 ### Feature: Voice Caddie + Scan-First Hole Cards — In Progress
 - [x] Chunk 1: Prompt schema — add aim_point, carry_target, play_bullets, terrain_note
-- [ ] Chunk 2: HoleCard visual redesign — scan-first layout
+- [x] Chunk 2: HoleCard visual redesign — scan-first layout
 - [ ] Chunk 3: Voice readout — one-tap audio caddie
 
 ---
