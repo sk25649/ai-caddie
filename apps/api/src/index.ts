@@ -2,7 +2,6 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { db } from './db';
 import { authRoutes } from './routes/auth';
 import { profileRoutes } from './routes/profile';
@@ -31,17 +30,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 
 const port = parseInt(process.env.PORT || '3000');
 
-async function start() {
-  try {
-    await migrate(db, { migrationsFolder: './drizzle' });
-    console.log('Migrations applied');
-  } catch (err: unknown) {
-    // Ignore "already exists" errors — tables were created outside of Drizzle's journal
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!msg.includes('already exists')) {
-      console.error('Migration error (continuing):', msg);
-    }
-  }
+function start() {
   serve({ fetch: app.fetch, port });
   console.log(`AI Caddie API running on port ${port}`);
 }
