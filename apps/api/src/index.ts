@@ -59,7 +59,7 @@ async function start() {
     console.error('[DB] Connection FAILED:', err);
   }
 
-  serve({ fetch: app.fetch, port });
+  serve({ fetch: app.fetch, port, hostname: '0.0.0.0' });
   console.log(`AI Caddie API running on port ${port}`);
 }
 
