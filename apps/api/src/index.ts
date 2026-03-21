@@ -1,8 +1,17 @@
+// Register crash handlers FIRST before any imports that might fail
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRASH] Unhandled rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH] Uncaught exception:', err);
+});
+
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { db } from './db';
+import { sql } from 'drizzle-orm';
 import { authRoutes } from './routes/auth';
 import { profileRoutes } from './routes/profile';
 import { courseRoutes } from './routes/courses';
@@ -39,17 +48,19 @@ app.get('/debug/env', (c) => c.json({
 
 const port = parseInt(process.env.PORT || '3000');
 
-function start() {
+async function start() {
+  // Test DB connection at startup so we can see the error in logs
+  console.log('[DB] DATABASE_PUBLIC_URL:', process.env.DATABASE_PUBLIC_URL ? process.env.DATABASE_PUBLIC_URL.replace(/:([^:@]+)@/, ':***@') : 'NOT SET');
+  console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':***@') : 'NOT SET');
+  try {
+    await db.execute(sql`SELECT 1`);
+    console.log('[DB] Connection OK');
+  } catch (err) {
+    console.error('[DB] Connection FAILED:', err);
+  }
+
   serve({ fetch: app.fetch, port });
   console.log(`AI Caddie API running on port ${port}`);
 }
-
-process.on('unhandledRejection', (reason) => {
-  console.error('[CRASH] Unhandled rejection:', reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('[CRASH] Uncaught exception:', err);
-});
 
 start();
