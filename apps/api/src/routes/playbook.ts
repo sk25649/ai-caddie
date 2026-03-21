@@ -79,50 +79,74 @@ playbookRoutes.post('/generate', async (c) => {
   const { courseId, teeName, roundDate, teeTime, scoringGoal } = parsed.data;
 
   // Get player profile
-  const [profile] = await db
-    .select()
-    .from(playerProfiles)
-    .where(eq(playerProfiles.userId, userId));
+  let profile: typeof playerProfiles.$inferSelect | undefined;
+  try {
+    [profile] = await db
+      .select()
+      .from(playerProfiles)
+      .where(eq(playerProfiles.userId, userId));
+  } catch (err) {
+    console.error('[playbook] DB profile query failed:', err);
+    return c.json({ error: `Database error: ${String(err)}` }, 500);
+  }
 
   if (!profile) {
     return c.json({ error: 'Profile not found. Complete onboarding first.' }, 404);
   }
 
   // Check cache
-  const [cached] = await db
-    .select()
-    .from(playbooks)
-    .where(
-      and(
-        eq(playbooks.profileId, profile.id),
-        eq(playbooks.courseId, courseId),
-        eq(playbooks.teeName, teeName),
-        eq(playbooks.roundDate, roundDate)
-      )
-    );
+  let cached: typeof playbooks.$inferSelect | undefined;
+  try {
+    [cached] = await db
+      .select()
+      .from(playbooks)
+      .where(
+        and(
+          eq(playbooks.profileId, profile.id),
+          eq(playbooks.courseId, courseId),
+          eq(playbooks.teeName, teeName),
+          eq(playbooks.roundDate, roundDate)
+        )
+      );
+  } catch (err) {
+    console.error('[playbook] DB cache query failed:', err);
+    return c.json({ error: `Database error: ${String(err)}` }, 500);
+  }
 
   if (cached) {
     return c.json({ data: cached });
   }
 
   // Fetch clubs
-  const clubs = await db
-    .select()
-    .from(playerClubs)
-    .where(eq(playerClubs.profileId, profile.id))
-    .orderBy(playerClubs.sortOrder);
-
-  // Fetch course + holes
-  const [course] = await db.select().from(courses).where(eq(courses.id, courseId));
-  if (!course) {
-    return c.json({ error: 'Course not found' }, 404);
+  let clubs: (typeof playerClubs.$inferSelect)[];
+  try {
+    clubs = await db
+      .select()
+      .from(playerClubs)
+      .where(eq(playerClubs.profileId, profile.id))
+      .orderBy(playerClubs.sortOrder);
+  } catch (err) {
+    console.error('[playbook] DB clubs query failed:', err);
+    return c.json({ error: `Database error: ${String(err)}` }, 500);
   }
 
-  const courseHoles = await db
-    .select()
-    .from(holes)
-    .where(eq(holes.courseId, courseId))
-    .orderBy(holes.holeNumber);
+  // Fetch course + holes
+  let course: typeof courses.$inferSelect | undefined;
+  let courseHoles: (typeof holes.$inferSelect)[];
+  try {
+    [course] = await db.select().from(courses).where(eq(courses.id, courseId));
+    if (!course) {
+      return c.json({ error: 'Course not found' }, 404);
+    }
+    courseHoles = await db
+      .select()
+      .from(holes)
+      .where(eq(holes.courseId, courseId))
+      .orderBy(holes.holeNumber);
+  } catch (err) {
+    console.error('[playbook] DB course/holes query failed:', err);
+    return c.json({ error: `Database error: ${String(err)}` }, 500);
+  }
 
   // Fetch weather
   let forecast: Record<string, unknown> = {};
@@ -166,40 +190,46 @@ playbookRoutes.post('/generate', async (c) => {
   }
 
   // Cache in DB
-  const [saved] = await db
-    .insert(playbooks)
-    .values({
-      profileId: profile.id,
-      courseId,
-      teeName,
-      scoringGoal,
-      roundDate,
-      teeTime,
-      weatherConditions: forecast,
-      preRoundTalk: playbookData.pre_round_talk,
-      holeStrategies: playbookData.holes,
-      projectedScore: playbookData.projected_score,
-      driverHoles: playbookData.driver_holes,
-      parChanceHoles: playbookData.par_chance_holes,
-    })
-    .onConflictDoUpdate({
-      target: [
-        playbooks.profileId,
-        playbooks.courseId,
-        playbooks.teeName,
-        playbooks.roundDate,
-      ],
-      set: {
+  let saved: typeof playbooks.$inferSelect;
+  try {
+    [saved] = await db
+      .insert(playbooks)
+      .values({
+        profileId: profile.id,
+        courseId,
+        teeName,
+        scoringGoal,
+        roundDate,
+        teeTime,
         weatherConditions: forecast,
         preRoundTalk: playbookData.pre_round_talk,
         holeStrategies: playbookData.holes,
         projectedScore: playbookData.projected_score,
         driverHoles: playbookData.driver_holes,
         parChanceHoles: playbookData.par_chance_holes,
-        generatedAt: new Date(),
-      },
-    })
-    .returning();
+      })
+      .onConflictDoUpdate({
+        target: [
+          playbooks.profileId,
+          playbooks.courseId,
+          playbooks.teeName,
+          playbooks.roundDate,
+        ],
+        set: {
+          weatherConditions: forecast,
+          preRoundTalk: playbookData.pre_round_talk,
+          holeStrategies: playbookData.holes,
+          projectedScore: playbookData.projected_score,
+          driverHoles: playbookData.driver_holes,
+          parChanceHoles: playbookData.par_chance_holes,
+          generatedAt: new Date(),
+        },
+      })
+      .returning();
+  } catch (err) {
+    console.error('[playbook] DB insert failed:', err);
+    return c.json({ error: `Database error saving playbook: ${String(err)}` }, 500);
+  }
 
   return c.json({ data: saved }, 201);
 });
