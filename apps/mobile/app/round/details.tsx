@@ -45,6 +45,8 @@ export default function DetailsScreen() {
   const tee = useRoundStore((s) => s.selectedTee);
   const setRoundDetails = useRoundStore((s) => s.setRoundDetails);
   const setPlaybook = useRoundStore((s) => s.setPlaybook);
+  const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
+  const setCompetitionMode = useRoundStore((s) => s.setCompetitionMode);
   const generatePlaybook = useGeneratePlaybook();
 
   const today = formatDate(new Date());
@@ -172,6 +174,31 @@ export default function DetailsScreen() {
             </Text>
           </Pressable>
         ))}
+      </View>
+
+      {/* Competition Mode */}
+      <View className="mb-6 bg-green-card border border-gold/20 rounded-xl p-4">
+        <View className="flex-row justify-between items-center mb-2">
+          <View className="flex-1 mr-4">
+            <Text className="text-base font-semibold text-cream">Competition Round</Text>
+            <Text className="text-xs text-cream-dim mt-1 leading-4">
+              Hides strategy on-course (Rule 4.3). Study your playbook now — print it before you play.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              setCompetitionMode(!isCompetitionMode);
+            }}
+            className={`w-14 h-8 rounded-full justify-center px-1 ${
+              isCompetitionMode ? 'bg-gold' : 'bg-black/40 border border-gold/20'
+            }`}
+          >
+            <View className={`w-6 h-6 rounded-full bg-white ${
+              isCompetitionMode ? 'self-end' : 'self-start'
+            }`} />
+          </Pressable>
+        </View>
       </View>
 
       {generatePlaybook.isPending && (

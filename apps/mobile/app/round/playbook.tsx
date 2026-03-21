@@ -18,6 +18,7 @@ export default function PlaybookScreen() {
   const currentHole = useRoundStore((s) => s.currentHole);
   const setScore = useRoundStore((s) => s.setScore);
   const setCurrentHole = useRoundStore((s) => s.setCurrentHole);
+  const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
 
   const [preRoundOpen, setPreRoundOpen] = useState(false);
 
@@ -80,6 +81,14 @@ export default function PlaybookScreen() {
         </View>
       </View>
 
+      {/* Competition Mode Badge */}
+      {isCompetitionMode && (
+        <View className="mx-4 mt-3 py-2 px-4 bg-gold/10 border border-gold/30 rounded-xl flex-row items-center justify-center gap-2">
+          <Text className="text-xs tracking-[3px] uppercase text-gold font-bold">Competition Mode</Text>
+          <Text className="text-xs text-cream-dim">· Rule 4.3 Active</Text>
+        </View>
+      )}
+
       {/* Live Score */}
       <LiveScoreBar holes={holes} scores={scores} />
 
@@ -114,6 +123,7 @@ export default function PlaybookScreen() {
           score={scores[currentHole]}
           onScore={(score) => setScore(currentHole, score)}
           onNext={() => setCurrentHole(Math.min(currentHole + 1, 17))}
+          isCompetitionMode={isCompetitionMode}
         />
       )}
 

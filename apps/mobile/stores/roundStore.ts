@@ -14,6 +14,8 @@ interface RoundState {
   scores: (number | null)[];
   currentHole: number;
 
+  isCompetitionMode: boolean;
+
   // Actions
   setCourse: (course: Course) => void;
   setTee: (tee: string) => void;
@@ -21,6 +23,7 @@ interface RoundState {
   setPlaybook: (playbook: Playbook) => void;
   setScore: (holeIndex: number, score: number | null) => void;
   setCurrentHole: (hole: number) => void;
+  setCompetitionMode: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -33,6 +36,7 @@ const initialState = {
   playbook: null,
   scores: Array(18).fill(null) as (number | null)[],
   currentHole: 0,
+  isCompetitionMode: false,
 };
 
 export const useRoundStore = create<RoundState>((set) => ({
@@ -50,5 +54,6 @@ export const useRoundStore = create<RoundState>((set) => ({
       return { scores };
     }),
   setCurrentHole: (hole) => set({ currentHole: hole }),
+  setCompetitionMode: (v) => set({ isCompetitionMode: v }),
   reset: () => set(initialState),
 }));

@@ -12,6 +12,7 @@ interface HoleCardProps {
   score: number | null;
   onScore: (score: number | null) => void;
   onNext?: () => void;
+  isCompetitionMode?: boolean;
 }
 
 type MissType = 'left' | 'right' | 'short' | null;
@@ -35,12 +36,17 @@ function scoreColor(d: number): string {
 }
 
 
-export function HoleCard({ hole, score, onScore, onNext }: HoleCardProps) {
+export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = false }: HoleCardProps) {
   const [activeMiss, setActiveMiss] = useState<MissType>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [competitionRevealed, setCompetitionRevealed] = useState(false);
   const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (nextTimerRef.current) clearTimeout(nextTimerRef.current); }, []);
+
+  useEffect(() => {
+    setCompetitionRevealed(false);
+  }, [hole.hole_number]);
 
   const toggleMiss = (type: MissType) => {
     Haptics.selectionAsync();
@@ -157,7 +163,7 @@ export function HoleCard({ hole, score, onScore, onNext }: HoleCardProps) {
           <Text className="text-[22px] font-bold text-white leading-8">
             {hole.aim_point}
           </Text>
-          {hole.carry_target ? (
+          {(!isCompetitionMode || competitionRevealed) && hole.carry_target ? (
             <View className="flex-row items-baseline gap-1.5 mt-2">
               <Text className="text-[11px] text-cream-dim tracking-[3px] font-semibold uppercase">
                 Carry
@@ -171,103 +177,122 @@ export function HoleCard({ hole, score, onScore, onNext }: HoleCardProps) {
         </View>
       ) : null}
 
-      {/* Play Bullets */}
-      {bullets.length > 0 ? (
-        <View className="px-6 pt-5 pb-4">
-          <SectionLabel>Game Plan</SectionLabel>
-          <View className="gap-3 mt-1">
-            {bullets.map((bullet, i) => (
-              <View key={i} className="flex-row gap-3 items-start">
-                <View className="w-6 h-6 rounded-full bg-gold/20 items-center justify-center mt-0.5 shrink-0">
-                  <Text className="text-[12px] font-bold text-gold">{i + 1}</Text>
-                </View>
-                <Text className="text-[17px] leading-7 text-cream flex-1">{bullet}</Text>
+      {/* Strategy sections — hidden in competition mode until revealed */}
+      {(!isCompetitionMode || competitionRevealed) && (
+        <>
+          {/* Play Bullets */}
+          {bullets.length > 0 ? (
+            <View className="px-6 pt-5 pb-4">
+              <SectionLabel>Game Plan</SectionLabel>
+              <View className="gap-3 mt-1">
+                {bullets.map((bullet, i) => (
+                  <View key={i} className="flex-row gap-3 items-start">
+                    <View className="w-6 h-6 rounded-full bg-gold/20 items-center justify-center mt-0.5 shrink-0">
+                      <Text className="text-[12px] font-bold text-gold">{i + 1}</Text>
+                    </View>
+                    <Text className="text-[17px] leading-7 text-cream flex-1">{bullet}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-        </View>
-      ) : null}
+            </View>
+          ) : null}
 
-      {/* Target */}
-      <View
-        className={`mx-5 p-4 rounded-[14px] flex-row items-center gap-3.5 border-2 ${
-          hole.is_par_chance
-            ? 'bg-par-green/10 border-par-green/30'
-            : 'bg-gold/[0.06] border-gold/15'
-        }`}
-      >
-        <Text className="text-[26px]">{hole.is_par_chance ? '🎯' : '🛡️'}</Text>
-        <View>
-          <Text className="text-xs text-cream-dim tracking-widest font-semibold uppercase">
-            Target
-          </Text>
-          <Text className="text-[19px] font-bold text-white mt-0.5">
-            {hole.target}
-          </Text>
-        </View>
-      </View>
-
-      {/* Terrain Warning — amber/orange, distinct from red danger */}
-      {hasTerrainNote ? (
-        <View className="mx-5 mt-4 p-4 rounded-[14px] border-2"
-          style={{ backgroundColor: 'rgba(200, 120, 20, 0.12)', borderColor: 'rgba(200, 120, 20, 0.30)' }}
-        >
-          <Text className="text-[13px] tracking-widest font-bold mb-1.5"
-            style={{ color: '#c87814' }}
+          {/* Target */}
+          <View
+            className={`mx-5 p-4 rounded-[14px] flex-row items-center gap-3.5 border-2 ${
+              hole.is_par_chance
+                ? 'bg-par-green/10 border-par-green/30'
+                : 'bg-gold/[0.06] border-gold/15'
+            }`}
           >
-            ⛰️ TERRAIN
-          </Text>
-          <Text className="text-[17px] leading-7 text-cream">{hole.terrain_note}</Text>
-        </View>
-      ) : null}
-
-      {/* Danger */}
-      <View className="mx-5 mt-4 p-4 rounded-[14px] bg-danger/[0.12] border-2 border-danger/20">
-        <Text className="text-[13px] text-danger tracking-widest font-bold mb-1.5">
-          ⚠️ DANGER
-        </Text>
-        <Text className="text-[17px] leading-7 text-cream">{hole.danger}</Text>
-      </View>
-
-      {/* Miss Buttons */}
-      <View className="p-5">
-        <SectionLabel>If You Miss...</SectionLabel>
-        <View className="flex-row gap-2.5">
-          {([
-            { key: 'left' as const, label: '⬅️ Hook', color: '#e05545' },
-            { key: 'right' as const, label: '➡️ Slice', color: '#a08030' },
-            { key: 'short' as const, label: '⬇️ Chunk', color: '#888' },
-          ]).map((m) => (
-            <Pressable
-              key={m.key}
-              onPress={() => toggleMiss(m.key)}
-              className={`flex-1 py-3.5 rounded-xl border-2 items-center ${
-                activeMiss === m.key
-                  ? 'border-gold/30'
-                  : 'border-gold/15 bg-black/30'
-              }`}
-              style={
-                activeMiss === m.key
-                  ? { borderColor: m.color, backgroundColor: m.color + '20' }
-                  : undefined
-              }
-            >
-              <Text
-                className={`text-[15px] font-semibold ${
-                  activeMiss === m.key ? 'text-white' : 'text-cream-dim'
-                }`}
-              >
-                {m.label}
+            <Text className="text-[26px]">{hole.is_par_chance ? '🎯' : '🛡️'}</Text>
+            <View>
+              <Text className="text-xs text-cream-dim tracking-widest font-semibold uppercase">
+                Target
               </Text>
-            </Pressable>
-          ))}
-        </View>
-        {activeMiss && (
-          <View className="mt-3.5 p-4 bg-black/35 rounded-xl border border-gold/12">
-            <Text className="text-[17px] leading-7 text-cream">{missText}</Text>
+              <Text className="text-[19px] font-bold text-white mt-0.5">
+                {hole.target}
+              </Text>
+            </View>
           </View>
-        )}
-      </View>
+
+          {/* Terrain Warning — amber/orange, distinct from red danger */}
+          {hasTerrainNote ? (
+            <View className="mx-5 mt-4 p-4 rounded-[14px] border-2"
+              style={{ backgroundColor: 'rgba(200, 120, 20, 0.12)', borderColor: 'rgba(200, 120, 20, 0.30)' }}
+            >
+              <Text className="text-[13px] tracking-widest font-bold mb-1.5"
+                style={{ color: '#c87814' }}
+              >
+                ⛰️ TERRAIN
+              </Text>
+              <Text className="text-[17px] leading-7 text-cream">{hole.terrain_note}</Text>
+            </View>
+          ) : null}
+
+          {/* Danger */}
+          <View className="mx-5 mt-4 p-4 rounded-[14px] bg-danger/[0.12] border-2 border-danger/20">
+            <Text className="text-[13px] text-danger tracking-widest font-bold mb-1.5">
+              ⚠️ DANGER
+            </Text>
+            <Text className="text-[17px] leading-7 text-cream">{hole.danger}</Text>
+          </View>
+
+          {/* Miss Buttons */}
+          <View className="p-5">
+            <SectionLabel>If You Miss...</SectionLabel>
+            <View className="flex-row gap-2.5">
+              {([
+                { key: 'left' as const, label: '⬅️ Hook', color: '#e05545' },
+                { key: 'right' as const, label: '➡️ Slice', color: '#a08030' },
+                { key: 'short' as const, label: '⬇️ Chunk', color: '#888' },
+              ]).map((m) => (
+                <Pressable
+                  key={m.key}
+                  onPress={() => toggleMiss(m.key)}
+                  className={`flex-1 py-3.5 rounded-xl border-2 items-center ${
+                    activeMiss === m.key
+                      ? 'border-gold/30'
+                      : 'border-gold/15 bg-black/30'
+                  }`}
+                  style={
+                    activeMiss === m.key
+                      ? { borderColor: m.color, backgroundColor: m.color + '20' }
+                      : undefined
+                  }
+                >
+                  <Text
+                    className={`text-[15px] font-semibold ${
+                      activeMiss === m.key ? 'text-white' : 'text-cream-dim'
+                    }`}
+                  >
+                    {m.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {activeMiss && (
+              <View className="mt-3.5 p-4 bg-black/35 rounded-xl border border-gold/12">
+                <Text className="text-[17px] leading-7 text-cream">{missText}</Text>
+              </View>
+            )}
+          </View>
+        </>
+      )}
+
+      {/* Show Strategy button — competition mode only, when not yet revealed */}
+      {isCompetitionMode && !competitionRevealed && (
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync();
+            setCompetitionRevealed(true);
+          }}
+          className="mx-5 my-3 py-3 rounded-xl border-2 border-gold/30 items-center bg-black/20"
+        >
+          <Text className="text-sm text-gold font-semibold">Show Strategy</Text>
+          <Text className="text-xs text-cream-dim mt-0.5">May affect Rule 4.3 compliance</Text>
+        </Pressable>
+      )}
 
       {/* Score Entry */}
       <View className="px-6 py-5 border-t border-gold/8 bg-black/20">

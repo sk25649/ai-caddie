@@ -10,7 +10,7 @@
 - [ ] Chunk 3: Yardage book HTML template (server-side)
 - [ ] Chunk 4: PDF export in mobile app
 - [ ] Chunk 5: Practice round caddie notes
-- [ ] Chunk 6: Competition on-course mode (Rule 4.3 compliant UI)
+- [x] Chunk 6: Competition on-course mode (Rule 4.3 compliant UI)
 
 ### Feature: Add Course CLI — In Progress
 - [ ] Chunk 1: Extract shared seed logic + make db:seed idempotent
@@ -782,12 +782,12 @@ Every line of the yardage book is specific to THIS player's bag, THIS player's m
    - When competition mode is active, show a persistent gold badge below the header: "COMPETITION MODE · Rule 4.3 Active"
 
 **Acceptance criteria:**
-- [ ] Competition mode toggle is available in round details setup
-- [ ] When active, HoleCard shows only hole info + tee club + aim point + score entry by default
-- [ ] "Show Strategy" button reveals full strategy with a Rule 4.3 warning
-- [ ] "Show Strategy" state resets when navigating between holes
-- [ ] A "COMPETITION MODE" badge is visible on the playbook screen
-- [ ] Normal mode is completely unchanged
+- [x] Competition mode toggle is available in round details setup
+- [x] When active, HoleCard shows only hole info + tee club + aim point + score entry by default
+- [x] "Show Strategy" button reveals full strategy with a Rule 4.3 warning
+- [x] "Show Strategy" state resets when navigating between holes
+- [x] A "COMPETITION MODE" badge is visible on the playbook screen
+- [x] Normal mode is completely unchanged
 
 ---
 
