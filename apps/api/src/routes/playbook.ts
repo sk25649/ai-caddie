@@ -41,7 +41,7 @@ async function callClaudeWithRetry(prompt: string): Promise<PlaybookResponse> {
     try {
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 6000,
+        max_tokens: 8000,
         system: CADDIE_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
       });

@@ -4,6 +4,14 @@
 
 ## Progress
 
+### Feature: Competitive Mode — Pending
+- [ ] Chunk 1: Any-course playbook via text description
+- [x] Chunk 2: Add print-optimized fields to prompt schema
+- [ ] Chunk 3: Yardage book HTML template (server-side)
+- [ ] Chunk 4: PDF export in mobile app
+- [ ] Chunk 5: Practice round caddie notes
+- [ ] Chunk 6: Competition on-course mode (Rule 4.3 compliant UI)
+
 ### Feature: Add Course CLI — In Progress
 - [ ] Chunk 1: Extract shared seed logic + make db:seed idempotent
 - [ ] Chunk 2: seed-one-course CLI script
@@ -297,3 +305,496 @@
 - Old cached playbooks (generated before Chunk 1) won't have new fields. Graceful fallbacks in Chunks 2-3 handle this. Playbooks expire naturally per round date, so old ones clear quickly.
 - `holeIntel.elevationChange` already exists in the DB schema — this is the data source for `terrain_note`. Claude needs to read it and surface it. The new CRITICAL RULE in the prompt handles this, but worth testing on a known-hilly course like Trump to verify it catches the Trump 10 valley case.
 - Token budget: 18 holes × ~4 new fields = more output. 6000 max_tokens should be sufficient, but watch for truncation in testing.
+
+---
+
+## Feature: Competitive Mode
+
+**Created:** 2026-03-21
+**Status:** Pending
+**Estimated effort:** ~6 sessions total
+
+**Goal:** Make AI Caddie genuinely useful for junior competitive golf — before, during, and after a tournament round. Deliver personalized, player-specific intelligence through the only formats that survive tour phone policies: a printed yardage book and a competition-compliant stripped-down on-course view.
+
+**Context:**
+- FCG, SCPGA/JDT: phones banned on course entirely. Paper is the only delivery path.
+- AJGA: phone required for scoring (Golf Genius) but Rule 4.3 prohibits club recommendations/strategy advice mid-round.
+- US Kids Golf: GPS yardage apps explicitly permitted. Caddies allowed for older divisions.
+- USGA Rule 4.3: club recommendations and strategy advice from an app are prohibited during a competitive round. Distance information is permitted.
+- The product's value for competition is a pre-round prep tool and printed yardage book, not a live on-course advisor.
+
+**What "personalized" means for this feature:**
+Every line of the yardage book is specific to THIS player's bag, THIS player's miss, THIS player's goal, and TODAY's weather. It is not a generic pro-shop yardage book. A 14-handicap slicer gets a different yardage book than a 6-handicap drawer playing the same course.
+
+**In scope:**
+- Any-course playbook generation via plain-text course description (unblocks all competition venues)
+- Print-optimized prompt fields: do_this, dont_do, approach_club, approach_distance
+- Personalized yardage book HTML generated server-side
+- PDF export via expo-print in the mobile app
+- Per-hole caddie notes captured during a practice round, injected into the playbook prompt
+- Competition on-course mode: stripped UI that hides strategy/club advice by default (Rule 4.3 compliant)
+
+**Out of scope:**
+- GPS distance to green (requires per-hole green coordinates not in DB — planned separately)
+- Match play scoring mode
+- Green contour maps or hole diagrams
+- ElevenLabs premium voice for competition
+
+**Dependencies:**
+- `expo-print` (install via `npx expo install expo-print`)
+- No new API keys required
+- No new infrastructure — HTML generation is server-side template literals, no puppeteer
+
+---
+
+### Chunk 1: Any-Course Playbook via Text Description
+**Estimated effort:** ~2 sessions
+**Files to modify:**
+- `apps/api/src/lib/prompts.ts` (new function: `buildCustomCoursePrompt`)
+- `apps/api/src/routes/playbook.ts` (new route: `POST /playbook/generate-from-description`)
+- `apps/mobile/lib/api.ts` (new function: `generatePlaybookFromDescription`)
+- `apps/mobile/app/round/custom-course.tsx` (new screen)
+- `apps/mobile/app/round/course-select.tsx` (add "Enter course manually" option)
+
+**Depends on:** none
+
+**Problem:** The app only has 20 LA courses. Any competition outside that set is completely inaccessible. A caddie who walked the practice round can describe the course in plain text. Claude can turn that into a full playbook.
+
+**What to do:**
+
+1. In `apps/api/src/lib/prompts.ts`, add a new exported function `buildCustomCoursePrompt`:
+   - Same signature as `buildPlaybookPrompt` but replaces the DB hole data with a `courseDescription: string` parameter
+   - The prompt section for hole-by-hole data becomes:
+     ```
+     COURSE DESCRIPTION (provided by caddie):
+     {courseDescription}
+
+     Generate a playbook for each hole described. If the caddie described all 18 holes,
+     produce 18 strategies. If fewer, produce strategies for the holes described and
+     use your knowledge of the course to fill gaps.
+     ```
+   - Player profile, clubs, weather, and scoring goal sections are identical to the standard prompt
+   - Include this instruction: "The caddie may have described holes informally — extract par, yardage, and hazards from context. Ask for nothing. Work with what you have."
+
+2. In `apps/api/src/routes/playbook.ts`, add a new route `POST /playbook/generate-from-description`:
+   - Schema: `{ courseName, teeName, courseDescription, roundDate, teeTime, scoringGoal, city?, state? }`
+   - `courseName` and `teeName` are free-text strings (not UUIDs — this course isn't in the DB)
+   - Fetch weather using the course city/state via a geocoding fallback (or skip weather gracefully if no lat/lng — same non-fatal pattern as existing weather fetch)
+   - Call Claude with `buildCustomCoursePrompt`
+   - Save playbook to DB with `courseId = null` (the `courseId` column must allow null — verify schema)
+   - Return the same `Playbook` shape so the mobile client needs no special handling
+
+3. In `apps/mobile/lib/api.ts`, add:
+   ```ts
+   export interface GeneratePlaybookFromDescriptionParams {
+     courseName: string;
+     teeName: string;
+     courseDescription: string;
+     roundDate: string;
+     teeTime: string;
+     scoringGoal: string;
+     city?: string;
+     state?: string;
+   }
+   export async function generatePlaybookFromDescription(
+     params: GeneratePlaybookFromDescriptionParams
+   ): Promise<Playbook> {
+     return api.post<Playbook>('/playbook/generate-from-description', params);
+   }
+   ```
+
+4. Create `apps/mobile/app/round/custom-course.tsx`:
+   - Header: "Describe the Course"
+   - Subheader: "Walk each hole or paste the scorecard. The more you write, the sharper your playbook."
+   - Inputs:
+     - Course name (text input)
+     - City, State (two short text inputs, side by side)
+     - Tee name (text input, placeholder "White, Blue, Red...")
+     - Course description (multiline TextInput, at least 8 lines, placeholder: "Hole 1: Par 4, 385 yards. Dogleg right at 210 yards. OB left the entire hole. Fairway bunker right at 220. Small elevated green, slopes front to back...")
+   - "Continue to Details" button → push to `/round/details` with course/tee stored in roundStore
+   - Add a `setCustomCourse(name, tee, description, city, state)` action to roundStore that stores these for the generate call
+
+5. In `apps/mobile/app/round/course-select.tsx`:
+   - Below the search results FlatList, add a pressable row: "Playing a course not listed? Enter it manually →"
+   - Tapping navigates to `/round/custom-course`
+
+6. In `apps/mobile/app/round/details.tsx`, update `handleGenerate`:
+   - Check `roundStore.isCustomCourse` flag
+   - If true: call `generatePlaybookFromDescription` with the stored description
+   - If false: existing `generatePlaybook` call (no change)
+
+**Acceptance criteria:**
+- [ ] A caddie can type a course description and generate a full 18-hole playbook
+- [ ] The playbook renders identically to a DB-sourced playbook — same HoleCard, same voice, same scoring
+- [ ] "Enter course manually" is discoverable from the course select screen
+- [ ] If only 9 holes are described, Claude generates 9 strategies (no crash)
+- [ ] TypeScript compiles without errors
+
+**Key decisions:**
+- No caching for custom-course playbooks on the same key as DB playbooks — they use `courseId = null` so the cache check won't match. Each generation is fresh. This is acceptable since the caddie's notes may change between practice round and competition day.
+- Do not create a DB course record for the described course — this keeps the schema clean and avoids polluting the curated course list with player-entered data.
+
+---
+
+### Chunk 2: Add Print-Optimized Fields to Prompt Schema
+**Estimated effort:** ~1 session
+**Files to modify:**
+- `apps/api/src/lib/prompts.ts`
+- `apps/api/src/db/schema.ts`
+- `apps/mobile/lib/api.ts`
+
+**Depends on:** none (can run in parallel with Chunk 1)
+
+**Problem:** The current `HoleStrategy` fields are designed for a screen with room to scroll. A yardage book needs terse, directive, player-specific do/don't instructions that reference the player's miss by name. These don't exist today.
+
+**What to do:**
+
+1. In `apps/api/src/lib/prompts.ts`, add 4 new fields to the per-hole JSON schema in `CADDIE_SYSTEM_PROMPT`:
+
+   ```json
+   "do_this": [
+     "imperative instruction ≤ 12 words — name the specific club",
+     "second do ≤ 12 words — reference player shot shape if relevant",
+     "optional third do — scoring mindset for this hole"
+   ],
+   "dont_do": [
+     "imperative don't ≤ 14 words — must name the specific danger AND reference player's primary miss",
+     "optional second don't — second biggest mistake on this hole"
+   ],
+   "approach_club": "club name from player's bag for the expected approach shot",
+   "approach_distance": 145
+   ```
+
+   Add these CRITICAL RULES to `CADDIE_SYSTEM_PROMPT`:
+   - `"DO_THIS: Each item must be imperative. Name the club. Reference the player's shot shape where it matters. No passive voice. 'Take 3-hybrid, your fade lands you right-center' not 'Consider using hybrid'."`
+   - `"DONT_DO: Each item must name the SPECIFIC consequence. Always reference the player's primary miss if it's relevant to the danger. 'No driver — your slice goes OB left' not 'Be careful with driver'. Maximum 2 items."`
+   - `"APPROACH_CLUB: Pick from the player's bag. Calculate remaining distance after the tee shot lands in the intended zone. This is the club they'll actually have in their hands."`
+
+2. In `apps/api/src/db/schema.ts`, add to the `HoleStrategy` interface:
+   ```ts
+   do_this?: string[];
+   dont_do?: string[];
+   approach_club?: string;
+   approach_distance?: number;
+   ```
+
+3. In `apps/mobile/lib/api.ts`, mirror the same optional additions to `HoleStrategy`.
+
+4. Bump `max_tokens` in `apps/api/src/routes/playbook.ts` from 6000 to 8000 to accommodate the additional fields across 18 holes.
+
+**Acceptance criteria:**
+- [x] New playbooks include `do_this` (2-3 items), `dont_do` (1-2 items), `approach_club`, `approach_distance` on every hole
+- [x] Each `dont_do` item references the player's primary miss when that miss is relevant to the hole's danger
+- [x] Old cached playbooks (missing new fields) still parse correctly — all new fields are optional
+- [x] TypeScript compiles without errors in both `apps/api` and `apps/mobile`
+
+---
+
+### Chunk 3: Yardage Book HTML Template (Server-Side)
+**Estimated effort:** ~2 sessions
+**Files to modify:**
+- `apps/api/src/lib/yardage-book.ts` (new)
+- `apps/api/src/routes/playbook.ts` (new route: `GET /playbook/:id/yardage-book`)
+
+**Depends on:** Chunk 2 (needs do_this, dont_do fields)
+
+**Problem:** The yardage book must be personalized to one player's bag, miss, and goals — not a generic pro-shop layout. It needs to be readable in sunlight, foldable to pocket size, and surveyable in 30 seconds per hole.
+
+**What to do:**
+
+1. Create `apps/api/src/lib/yardage-book.ts` with a single exported function:
+   ```ts
+   export function generateYardageBookHtml(
+     playbook: Playbook,
+     profile: PlayerProfile,
+     clubs: PlayerClub[],
+     course: CourseDetail | { name: string; par: number }
+   ): string
+   ```
+   Returns a complete self-contained HTML string with inline CSS (no external deps).
+
+   **HTML structure:**
+   - `<head>` with `@page { size: 5.5in 4.25in; margin: 0.3in; }` for half-letter landscape printing
+   - `@media print { body { font-family: 'Georgia', serif; } }` — serif prints well at small sizes
+   - Color scheme: dark green background (`#1a2e1a`), gold text (`#d4a843`), white body text — matches app brand and reads well outdoors
+   - Page breaks between holes: `page-break-after: always` on each hole section
+
+   **Page 1 — Cover:**
+   ```
+   AI CADDIE                          [small tracking-wide uppercase]
+   ─────────────────────────────────
+   {profile.displayName}  ·  HCP {profile.handicap}
+   {course.name}  ·  {playbook.teeName} Tees
+   {playbook.roundDate}  ·  {playbook.teeTime}
+
+   WEATHER TODAY
+   {temp}°F  ·  {wind_speed}mph {compass}  ·  {conditions}
+   → [1-2 sentence wind note derived from conditions]
+
+   YOUR TARGETS
+   Dream {profile.dreamScore}  ·  Goal {profile.goalScore}  ·  Floor {profile.floorScore}
+
+   PRE-ROUND KEYS
+   {playbook.preRoundTalk split into bullet points — max 6 lines}
+
+   YOUR BAG
+   {top 6 clubs with carry distances, fairway finders marked with star}
+   ```
+
+   **Pages 2-19 — One hole per page:**
+   ```
+   HOLE {n}          PAR {par}  ·  HDCP {handicap_index}  ·  {yardage} YDS
+   ────────────────────────────────────────────  [{PAR CHANCE ★} or {BOGEY}]
+
+   TEE
+   {tee_club} ({carry_target} carry)
+   Aim: {aim_point}
+
+   APPROACH  ~{approach_distance} yds
+   {approach_club}
+   {target description — 1 line}
+
+   DO THIS                          NOT THIS
+   • {do_this[0]}                   • {dont_do[0]}
+   • {do_this[1]}                   • {dont_do[1] if exists}
+   • {do_this[2] if exists}
+
+   [IF terrain_note non-empty:]
+   TERRAIN: {terrain_note}
+
+   DANGER: {danger}
+
+   IF YOU MISS
+   Left: {miss_left — first sentence only}
+   Right: {miss_right — first sentence only}
+   Short: {miss_short — first sentence only}
+
+   ─────────────────────────────────────────────
+   {par-1} · {par} · {par+1} · {par+2}
+    Birdie  · Par  · Bogey  · Double
+   ```
+
+   **Page 20 — Scorecard:**
+   ```
+   HOLE  PAR  HDCP  TARGET  SCORE
+     1    4     5     B
+     2    3    11     B
+     3    5     1    B★
+   ...
+   OUT   36         41
+    IN   36         42
+   TOTAL 72         83    [goal score]
+
+   Bogey budget: 12  ·  Par chances: {parChances}
+   Dream: {dreamScore}  Goal: {goalScore}  Floor: {floorScore}
+   ```
+
+   **Template details:**
+   - All content uses inline styles (no external CSS files) for portability
+   - Font sizes: hole number `2.2rem`, club `1.4rem`, body `0.85rem` — readable at pocket size
+   - Two-column layout for DO THIS / NOT THIS sections
+   - Terrain note section only renders if `terrain_note` is non-empty
+   - For holes without new fields (old cached playbooks): fall back to `play_bullets` for do_this, `danger` for dont_do
+
+2. In `apps/api/src/routes/playbook.ts`, add a new route `GET /playbook/:id/yardage-book`:
+   - Fetch the playbook by ID (existing logic)
+   - Fetch the player profile + clubs (for bag data and personalization)
+   - Fetch the course record (for par, name — `courseId` may be null for custom courses, handle gracefully)
+   - Call `generateYardageBookHtml(...)`
+   - Return `{ data: { html: string } }` as JSON
+
+**Acceptance criteria:**
+- [ ] `GET /playbook/:id/yardage-book` returns valid HTML that renders correctly in a browser
+- [ ] Cover page contains player name, handicap, course, date, pre-round talk, and bag summary
+- [ ] Each hole page contains: tee club + carry, aim point, approach club + distance, do_this (2-3 items), dont_do (1-2 items), terrain note (if present), danger, miss left/right/short (first sentence), score range footer
+- [ ] dont_do items reference the player's primary miss where relevant (validated in generated content)
+- [ ] Scorecard back page has all 18 holes with par, HDCP, target score, and scoring goals
+- [ ] Old playbooks without do_this/dont_do fields render without crashing (fallback to play_bullets/danger)
+- [ ] HTML renders correctly in Chrome and Safari (the two print engines players will use)
+
+**Key decisions:**
+- Return HTML as JSON `{ data: { html } }` rather than `Content-Type: text/html` — consistent with all other API responses, and easier to handle in the mobile client
+- No server-side PDF generation (avoids heavy dependencies like puppeteer on Railway). PDF conversion happens client-side via expo-print.
+- Self-contained HTML with inline styles — the generated file must be printable with zero external requests, even offline
+
+---
+
+### Chunk 4: PDF Export in Mobile App
+**Estimated effort:** ~1 session
+**Files to modify:**
+- `apps/mobile/package.json` (add expo-print)
+- `apps/mobile/lib/api.ts` (new function: `getYardageBookHtml`)
+- `apps/mobile/app/round/playbook.tsx` (add Print button)
+
+**Depends on:** Chunk 3
+
+**What to do:**
+
+1. Install expo-print: `npx expo install expo-print expo-sharing`
+
+2. In `apps/mobile/lib/api.ts`, add:
+   ```ts
+   export async function getYardageBookHtml(playbookId: string): Promise<string> {
+     const result = await api.get<{ html: string }>(`/playbook/${playbookId}/yardage-book`);
+     return result.html;
+   }
+   ```
+
+3. In `apps/mobile/app/round/playbook.tsx`:
+   - Import `* as Print from 'expo-print'` and `* as Sharing from 'expo-sharing'`
+   - Add `isPrinting` boolean state
+   - Add a "Print Yardage Book" button below the playbook header stats bar (visible at all times during the round, not just after 18 holes):
+     ```tsx
+     <Pressable onPress={handlePrintYardageBook} disabled={isPrinting}>
+       <Text>Print Yardage Book</Text>
+     </Pressable>
+     ```
+   - `handlePrintYardageBook`:
+     ```ts
+     const handlePrintYardageBook = async () => {
+       setIsPrinting(true);
+       try {
+         const html = await getYardageBookHtml(playbook.id);
+         const { uri } = await Print.printToFileAsync({ html });
+         await Sharing.shareAsync(uri, {
+           mimeType: 'application/pdf',
+           dialogTitle: `${course.name} Yardage Book`,
+           UTI: 'com.adobe.pdf',
+         });
+       } catch (e) {
+         Alert.alert('Error', 'Could not generate yardage book. Please try again.');
+       } finally {
+         setIsPrinting(false);
+       }
+     };
+     ```
+   - Button shows "Generating..." with a loading state while `isPrinting` is true
+
+**Acceptance criteria:**
+- [ ] "Print Yardage Book" button is visible on the playbook screen
+- [ ] Tapping it fetches the HTML, converts to PDF via expo-print, and opens the iOS/Android share sheet
+- [ ] User can AirPrint directly to a printer, save to Files, or share to another app
+- [ ] Button shows a loading state during generation (PDF conversion takes 1-3 seconds)
+- [ ] Error state shown if the API call fails
+
+---
+
+### Chunk 5: Practice Round Caddie Notes
+**Estimated effort:** ~1 session
+**Files to modify:**
+- `apps/mobile/stores/roundStore.ts` (add holeNotes state)
+- `apps/mobile/components/playbook/HoleCard.tsx` (add notes input)
+- `apps/api/src/db/schema.ts` (add caddieNotes to playbooks table)
+- `apps/api/src/routes/playbook.ts` (save/load caddieNotes, inject into prompt)
+- `apps/api/src/lib/prompts.ts` (inject per-hole notes into hole data)
+
+**Depends on:** none (can run in parallel with other chunks)
+
+**Problem:** Before a competition, a caddie walks the course and captures observations that aren't in any database: "the valley on 7 makes it play 30 yards longer," "green on 12 is always firm and fast," "left bunker on 3 looks playable but has no exit angle." These notes should feed back into the Claude prompt and appear in the yardage book.
+
+**What to do:**
+
+1. In `apps/mobile/stores/roundStore.ts`:
+   - Add `holeNotes: string[]` to state (18 empty strings initially)
+   - Add `setHoleNote: (holeIndex: number, note: string) => void` action
+
+2. In `apps/mobile/components/playbook/HoleCard.tsx`:
+   - Add `note: string` and `onNote: (note: string) => void` to `HoleCardProps`
+   - After the Danger section, add a collapsible "Caddie Note" section:
+     - Header row: "CADDIE NOTE" label + expand/collapse toggle
+     - When expanded: multiline `TextInput` (3 lines), placeholder "e.g. Valley at 185 plays 20y longer. Green firm, back pin is dead."
+     - Saves on blur via `onNote`
+     - If `note` has content, show a preview line when collapsed
+
+3. In `apps/mobile/app/round/playbook.tsx`:
+   - Pass `note={holeNotes[currentHole]}` and `onNote={(n) => setHoleNote(currentHole, n)}` to `HoleCard`
+
+4. In `apps/api/src/db/schema.ts`, add `caddieNotes: jsonb` to the `playbooks` table (array of 18 strings). Run a migration.
+
+5. In `apps/api/src/routes/playbook.ts`:
+   - Add `PATCH /playbook/:id/notes` endpoint: accepts `{ holeIndex: number, note: string }`, updates the `caddieNotes[holeIndex]` in the DB
+   - Load `caddieNotes` when returning the playbook from `GET /playbook/:id` and `POST /playbook/generate`
+
+6. In `apps/mobile/lib/api.ts`, add:
+   ```ts
+   export async function updatePlaybookNote(playbookId: string, holeIndex: number, note: string): Promise<void> {
+     await api.patch(`/playbook/${playbookId}/notes`, { holeIndex, note });
+   }
+   ```
+   Call this from `HoleCard`'s `onNote` handler (debounced 800ms to avoid excessive API calls).
+
+7. In `apps/api/src/lib/prompts.ts`, in `buildPlaybookPrompt` and `buildCustomCoursePrompt`:
+   - Add `caddieNotes?: string[]` parameter
+   - In the hole-by-hole data section, append the note for each hole if it exists:
+     ```
+     { number: 1, par: 4, yardage: 385, ..., caddieNote: "valley at 185 plays 20y longer" }
+     ```
+
+**Acceptance criteria:**
+- [ ] A collapsible notes field appears on each hole card
+- [ ] Notes persist across app sessions (saved to API)
+- [ ] Notes inject into the playbook prompt when regenerating (visible in Claude's output — e.g., "caddie notes a hidden valley at 185 that plays 20 yards longer")
+- [ ] Notes appear in the yardage book PDF (added to the hole page in a CADDIE NOTES section)
+- [ ] TypeScript compiles without errors
+
+---
+
+### Chunk 6: Competition On-Course Mode (Rule 4.3 Compliant UI)
+**Estimated effort:** ~1 session
+**Files to modify:**
+- `apps/mobile/stores/roundStore.ts` (add isCompetitionMode flag)
+- `apps/mobile/app/round/details.tsx` (add competition mode toggle)
+- `apps/mobile/components/playbook/HoleCard.tsx` (conditional rendering based on mode)
+- `apps/mobile/app/round/playbook.tsx` (pass isCompetitionMode, show compliance badge)
+
+**Depends on:** none (can run in parallel)
+
+**Context:** Under USGA Rule 4.3, club recommendations and strategy advice from an app are prohibited during a competitive round. Violation = 2 strokes first breach, DQ on second. This mode makes the app legally safe to use on-course at AJGA and US Kids Golf events where phones are permitted.
+
+**What to do:**
+
+1. In `apps/mobile/stores/roundStore.ts`:
+   - Add `isCompetitionMode: boolean` to state (default `false`)
+   - Add `setCompetitionMode: (v: boolean) => void` action
+
+2. In `apps/mobile/app/round/details.tsx`:
+   - Below the scoring goal chips, add a toggle row:
+     ```
+     Competition Round
+     [toggle switch]
+     Rule 4.3: club advice hidden by default on course.
+     Study your playbook now — print it before you play.
+     ```
+   - Tapping it calls `setCompetitionMode(true/false)` in roundStore
+
+3. In `apps/mobile/components/playbook/HoleCard.tsx`:
+   - Add `isCompetitionMode?: boolean` to `HoleCardProps`
+   - When `isCompetitionMode` is true, the card renders in "Competition View":
+     - Shows: hole header (number, par, yardage, HDCP), tee club badge, aim point, score entry
+     - Hides by default: play bullets, approach club, terrain note, danger, miss buttons, do_this/dont_do
+     - Adds a single "Show Strategy" pressable button that reveals the hidden sections when tapped (with a brief warning: "Showing strategy may breach Rule 4.3 in competition")
+     - "Show Strategy" state resets when navigating to a new hole (back to hidden)
+   - When `isCompetitionMode` is false: renders exactly as today (no change)
+
+4. In `apps/mobile/app/round/playbook.tsx`:
+   - Read `isCompetitionMode` from roundStore
+   - Pass it to `HoleCard`
+   - When competition mode is active, show a persistent gold badge below the header: "COMPETITION MODE · Rule 4.3 Active"
+
+**Acceptance criteria:**
+- [ ] Competition mode toggle is available in round details setup
+- [ ] When active, HoleCard shows only hole info + tee club + aim point + score entry by default
+- [ ] "Show Strategy" button reveals full strategy with a Rule 4.3 warning
+- [ ] "Show Strategy" state resets when navigating between holes
+- [ ] A "COMPETITION MODE" badge is visible on the playbook screen
+- [ ] Normal mode is completely unchanged
+
+---
+
+**Risks & Unknowns:**
+- Custom course playbooks (`courseId = null`): Verify the `playbooks` table schema allows nullable `courseId`. If there's a NOT NULL constraint, add a migration to relax it.
+- Yardage book print quality depends on the iOS/Android WebView rendering of the HTML. Test on device — not just simulator — because font rendering and page breaks behave differently.
+- The `do_this`/`dont_do` personalization quality depends on how well Claude reads the player's miss tendencies from the profile. Test with a real profile (primary miss = "Slice right") and verify that at least 3-4 holes have a `dont_do` that explicitly names the slice.
+- `expo-print` has known issues with large HTML files on older Android devices. If a 20-page yardage book causes memory issues, split into front-9 and back-9 PDFs as a fallback.
+- Practice round notes (Chunk 5) require a DB migration for `caddieNotes` column. Run `npm run db:migrate` in the Railway environment after deploying Chunk 5.
+- Competition mode (Chunk 6) does not provide GPS distance to green — that requires per-hole green coordinates which are not in the current schema. This is explicitly deferred. The mode is about UI compliance, not GPS yardage.

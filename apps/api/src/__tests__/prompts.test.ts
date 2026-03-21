@@ -286,3 +286,35 @@ describe('buildPlaybookPrompt — course and tee data', () => {
     expect(pos1).toBeLessThan(pos18);
   });
 });
+
+describe('CADDIE_SYSTEM_PROMPT — print-optimized fields (chunk 2)', () => {
+  it('includes do_this field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"do_this"');
+  });
+
+  it('includes dont_do field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"dont_do"');
+  });
+
+  it('includes approach_club field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"approach_club"');
+  });
+
+  it('includes approach_distance field in schema', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('"approach_distance"');
+  });
+
+  it('includes DO_THIS critical rule', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('DO_THIS:');
+  });
+
+  it('includes DONT_DO critical rule', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('DONT_DO:');
+  });
+
+  it('buildPlaybookPrompt returns a non-empty string with minimal valid args', () => {
+    const result = buildPlaybookPrompt(baseProfile, baseCourse, 'White', baseWeather, 'Break 90');
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  });
+});

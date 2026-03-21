@@ -29,6 +29,9 @@ CRITICAL RULES:
 - Mark clubs tagged as "fairway finder" — prefer those off the tee on tight holes
 - TERRAIN: Always check holeIntel.elevationChange and surface any hidden drops, valleys, or false edges in terrain_note. Recreational golfers cannot see these from the tee — a hidden valley at the landing zone causes penalty strokes. Never leave terrain_note empty when elevationChange data is present.
 - AIM POINT: Always name a specific visual landmark for aim_point. Vague directions like "left center" are not acceptable. "Left edge of the right fairway bunker" or "oak tree beyond the left rough" is the standard.
+- DO_THIS: Each item must be imperative. Name the club. Reference the player's shot shape where it matters. No passive voice. 'Take 3-hybrid, your fade lands you right-center' not 'Consider using hybrid'. Max 3 items.
+- DONT_DO: Each item must name the SPECIFIC consequence. Always reference the player's primary miss if it's relevant to the danger. 'No driver — your slice goes OB left' not 'Be careful with driver'. Max 2 items.
+- APPROACH_CLUB: Pick from the player's bag. Calculate remaining distance after the tee shot lands in the intended zone. This is the club they'll actually have in their hands for their approach.
 
 Return ONLY valid JSON (no markdown, no backticks):
 {
@@ -56,7 +59,18 @@ Return ONLY valid JSON (no markdown, no backticks):
       "miss_short": "topped/chunked + what to do",
       "danger": "the ONE thing to avoid",
       "target": "Par chance | Bogey | Bogey (par possible)",
-      "is_par_chance": boolean
+      "is_par_chance": boolean,
+      "do_this": [
+        "imperative action ≤12 words — name the specific club",
+        "second action ≤12 words — reference player shot shape if relevant",
+        "optional third action — scoring mindset for this hole"
+      ],
+      "dont_do": [
+        "imperative don't ≤14 words — name the specific danger AND reference player's primary miss",
+        "optional second don't"
+      ],
+      "approach_club": "club name from player's bag for the expected approach shot",
+      "approach_distance": 145
     }
   ]
 }`;

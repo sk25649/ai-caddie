@@ -204,6 +204,10 @@ export interface HoleStrategy {
   danger: string;
   target: string;
   is_par_chance: boolean;
+  do_this?: string[];
+  dont_do?: string[];
+  approach_club?: string;
+  approach_distance?: number;
 }
 
 export interface WeatherForecast {
