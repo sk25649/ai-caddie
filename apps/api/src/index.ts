@@ -35,8 +35,12 @@ async function start() {
   try {
     await migrate(db, { migrationsFolder: './drizzle' });
     console.log('Migrations applied');
-  } catch (err) {
-    console.error('Migration error (continuing):', err);
+  } catch (err: unknown) {
+    // Ignore "already exists" errors — tables were created outside of Drizzle's journal
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes('already exists')) {
+      console.error('Migration error (continuing):', msg);
+    }
   }
   serve({ fetch: app.fetch, port });
   console.log(`AI Caddie API running on port ${port}`);
