@@ -219,6 +219,26 @@ export default function SummaryScreen() {
           </>
         )}
 
+        {/* Share Section */}
+        <Card className="mb-4 border border-gold/20 bg-gold/5">
+          <View className="p-5 items-center">
+            <Text className="text-xs tracking-[2px] uppercase text-gold font-bold mb-3">
+              Share Your Round
+            </Text>
+            <Text className="text-cream-dim text-sm text-center mb-4">
+              Inspire your friends. Share your score and key lessons.
+            </Text>
+            <Button
+              title="Generate Share Card"
+              variant="secondary"
+              onPress={() => {
+                // Share card generation (to be implemented)
+                Alert.alert('Coming Soon', 'Share cards will be available after round is saved.');
+              }}
+            />
+          </View>
+        </Card>
+
         {/* Notes */}
         <Input
           label="Round Notes (optional)"
