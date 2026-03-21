@@ -4,4 +4,4 @@ COPY apps/api/package*.json ./
 RUN npm install
 COPY apps/api/ .
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npx drizzle-kit migrate && npm start"]
