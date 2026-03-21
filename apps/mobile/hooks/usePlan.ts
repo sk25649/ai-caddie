@@ -1,24 +1,47 @@
 import { useProfile } from './useProfile';
-import { getEntitlements, type Entitlements, type PlanType } from '../lib/entitlements';
+import {
+  getEntitlements,
+  getPlanFromRevenueCat,
+  normalizePlanType,
+  type Entitlements,
+  type PlanType,
+} from '../lib/entitlements';
+import type { RevenueCatCustomerInfo } from '../lib/revenuecat';
 
 /**
- * Hook to get current plan and entitlements
- * Reads from player profile
+ * Hook to get current plan and entitlements.
+ *
+ * Pass RevenueCat customerInfo when the SDK is active.
+ * Falls back to profile plan field, then 'free'.
+ *
+ * Usage (today, without SDK):
+ *   const { plan, entitlements } = usePlan();
+ *
+ * Usage (once RevenueCat is wired up):
+ *   const { plan, entitlements } = usePlan({ customerInfo });
  */
-export function usePlan() {
+export function usePlan(options?: { customerInfo?: RevenueCatCustomerInfo | null }) {
   const { data: profile } = useProfile();
 
-  // For now, assume all users are on Free plan
-  // In production, this would come from the profile API response
-  const plan: PlanType = (profile?.plan as PlanType) || 'free';
+  let plan: PlanType;
+
+  if (options?.customerInfo !== undefined) {
+    // RevenueCat is the source of truth
+    plan = getPlanFromRevenueCat(options.customerInfo);
+  } else {
+    // Fallback: use profile plan from API (handles legacy 'pro'/'founding' values)
+    plan = normalizePlanType(profile?.plan as string | undefined);
+  }
+
   const entitlements: Entitlements = getEntitlements(plan);
 
   return {
     plan,
     entitlements,
-    isPro: plan === 'pro' || plan === 'founding',
+    isPro: plan === 'pro_monthly' || plan === 'pro_annual',
     isFree: plan === 'free',
-    isFoundingMember: plan === 'founding',
+    isProAnnual: plan === 'pro_annual',
+    isProMonthly: plan === 'pro_monthly',
   };
 }
 

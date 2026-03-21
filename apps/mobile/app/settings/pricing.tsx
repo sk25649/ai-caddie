@@ -2,21 +2,38 @@ import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { usePlan } from '../../hooks/usePlan';
+import { REVENUECAT_PRODUCT_IDS, isRevenueCatConfigured } from '../../lib/revenuecat';
 
 interface PricingPlan {
-  id: 'free' | 'pro' | 'founding';
+  id: 'free' | 'pro_monthly' | 'pro_annual';
   name: string;
   price: string;
   period: string;
   description: string;
   features: string[];
   highlighted?: boolean;
+  badge?: string;
   cta: string;
   ctaAction: () => void;
 }
 
 export default function PricingScreen() {
-  const [selectedPlan, setSelectedPlan] = useState<'free' | 'pro' | 'founding' | null>(null);
+  const { plan: currentPlan } = usePlan();
+  const [selectedPlan, setSelectedPlan] = useState<PricingPlan['id'] | null>(null);
+
+  function handleUpgrade(productId: string) {
+    if (!isRevenueCatConfigured()) {
+      Alert.alert(
+        'Coming Soon',
+        'In-app purchases are being set up. Check back soon!'
+      );
+      return;
+    }
+    // TODO: call RevenueCat purchase flow once SDK is installed
+    // purchaseProduct(productId);
+    Alert.alert('Upgrade', `Would purchase: ${productId}`);
+  }
 
   const plans: PricingPlan[] = [
     {
@@ -31,38 +48,17 @@ export default function PricingScreen() {
         'Score tracking',
         'Mobile app access',
       ],
-      cta: 'Current Plan',
+      cta: currentPlan === 'free' ? 'Current Plan' : 'Downgrade',
       ctaAction: () => {
-        Alert.alert('You are on the Free plan', 'Upgrade anytime to access Pro features.');
+        Alert.alert('Free Plan', 'You are on the Free plan. Upgrade anytime to unlock Pro.');
       },
     },
     {
-      id: 'founding',
-      name: 'Founding Member',
-      price: '$49',
-      period: '/year (one-time)',
-      description: 'Locked forever for first 50 members',
-      features: [
-        'Unlimited playbooks',
-        'AI-generated lessons',
-        'Yardage book export (PDF)',
-        'Course memory',
-        'Custom courses',
-        'Post-round review',
-        'Founding member badge',
-      ],
-      highlighted: true,
-      cta: 'Join Founding',
-      ctaAction: () => {
-        Alert.alert('Upgrade Flow', 'This would connect to Stripe in production.');
-      },
-    },
-    {
-      id: 'pro',
-      name: 'Pro',
+      id: 'pro_annual',
+      name: 'Pro Annual',
       price: '$79',
       period: '/year',
-      description: 'Full access to all features',
+      description: 'Best value — save vs monthly',
       features: [
         'Unlimited playbooks',
         'AI-generated lessons',
@@ -70,12 +66,28 @@ export default function PricingScreen() {
         'Course memory',
         'Custom courses',
         'Post-round review',
-        'Priority support',
       ],
-      cta: 'Upgrade to Pro',
-      ctaAction: () => {
-        Alert.alert('Upgrade Flow', 'This would connect to Stripe in production.');
-      },
+      highlighted: true,
+      badge: 'Best Value',
+      cta: currentPlan === 'pro_annual' ? 'Current Plan' : 'Go Annual',
+      ctaAction: () => handleUpgrade(REVENUECAT_PRODUCT_IDS.PRO_ANNUAL),
+    },
+    {
+      id: 'pro_monthly',
+      name: 'Pro Monthly',
+      price: '$9',
+      period: '/month',
+      description: 'Full Pro access, cancel anytime',
+      features: [
+        'Unlimited playbooks',
+        'AI-generated lessons',
+        'Yardage book export (PDF)',
+        'Course memory',
+        'Custom courses',
+        'Post-round review',
+      ],
+      cta: currentPlan === 'pro_monthly' ? 'Current Plan' : 'Go Monthly',
+      ctaAction: () => handleUpgrade(REVENUECAT_PRODUCT_IDS.PRO_MONTHLY),
     },
   ];
 
@@ -102,14 +114,14 @@ export default function PricingScreen() {
             onPress={() => setSelectedPlan(plan.id)}
             className={`rounded-xl border-2 overflow-hidden ${
               plan.highlighted
-                ? 'border-gold bg-gold/10 transform scale-105'
+                ? 'border-gold bg-gold/10'
                 : 'border-gold/20 bg-green-card'
             }`}
           >
             <View className={`p-6 ${plan.highlighted ? 'bg-gold/20' : ''}`}>
-              {plan.highlighted && (
+              {plan.badge && (
                 <Text className="text-xs tracking-[2px] uppercase text-gold font-bold mb-2">
-                  ⭐ Best Value
+                  ⭐ {plan.badge}
                 </Text>
               )}
 
@@ -139,6 +151,7 @@ export default function PricingScreen() {
                 title={plan.cta}
                 onPress={plan.ctaAction}
                 variant={plan.highlighted ? 'primary' : 'secondary'}
+                disabled={plan.id === currentPlan}
               />
             </View>
           </Pressable>
@@ -157,28 +170,35 @@ export default function PricingScreen() {
               <View>
                 <Text className="text-cream font-semibold mb-1">Can I try Pro for free?</Text>
                 <Text className="text-cream-dim text-sm">
-                  Yes, start with Free. You can upgrade anytime and pay the difference.
+                  Start with Free. Upgrade anytime to unlock all Pro features.
                 </Text>
               </View>
 
               <View>
-                <Text className="text-cream font-semibold mb-1">Is Founding locked in forever?</Text>
+                <Text className="text-cream font-semibold mb-1">Annual vs monthly?</Text>
                 <Text className="text-cream-dim text-sm">
-                  Yes. $49/year forever, for the first 50 members. After 50 or profitability, it closes.
+                  Annual saves you roughly 30% compared to monthly. Both include the same Pro features.
                 </Text>
               </View>
 
               <View>
-                <Text className="text-cream font-semibold mb-1">Do I need a credit card?</Text>
+                <Text className="text-cream font-semibold mb-1">How do I pay?</Text>
                 <Text className="text-cream-dim text-sm">
-                  Only to upgrade from Free. We use Stripe for secure payments.
+                  Through the App Store. Payment is handled securely by Apple.
                 </Text>
               </View>
 
               <View>
                 <Text className="text-cream font-semibold mb-1">Can I cancel anytime?</Text>
                 <Text className="text-cream-dim text-sm">
-                  Pro: Yes, monthly or annual cancellation anytime. Founding: One-time purchase, no refunds.
+                  Yes. Manage your subscription in iOS Settings &gt; App Store &gt; Subscriptions.
+                </Text>
+              </View>
+
+              <View>
+                <Text className="text-cream font-semibold mb-1">Restore purchases?</Text>
+                <Text className="text-cream-dim text-sm">
+                  If you reinstall or switch devices, your subscription restores automatically when you sign in with the same Apple ID.
                 </Text>
               </View>
             </View>

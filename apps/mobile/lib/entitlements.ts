@@ -1,9 +1,17 @@
 /**
  * Entitlements system for AI Caddie
  * Manages Free vs Pro plan features
+ *
+ * Source of truth priority:
+ *   1. RevenueCat active entitlements (when SDK is configured)
+ *   2. Profile plan field from API (fallback)
+ *   3. 'free' (default)
  */
 
-export type PlanType = 'free' | 'pro' | 'founding';
+import type { RevenueCatCustomerInfo } from './revenuecat';
+import { hasProEntitlement } from './revenuecat';
+
+export type PlanType = 'free' | 'pro_monthly' | 'pro_annual';
 
 export interface Entitlements {
   plan: PlanType;
@@ -30,19 +38,10 @@ export function getEntitlements(plan: PlanType): Entitlements {
         canCreateCustomCourses: false,
         canAccessTrustLoop: false,
       };
-    case 'pro':
+    case 'pro_monthly':
+    case 'pro_annual':
       return {
-        plan: 'pro',
-        playbooksPerMonth: Infinity,
-        canExportYardageBook: true,
-        canAccessPostRoundReview: true,
-        canAccessCourseMemory: true,
-        canCreateCustomCourses: true,
-        canAccessTrustLoop: true,
-      };
-    case 'founding':
-      return {
-        plan: 'founding',
+        plan,
         playbooksPerMonth: Infinity,
         canExportYardageBook: true,
         canAccessPostRoundReview: true,
@@ -51,6 +50,33 @@ export function getEntitlements(plan: PlanType): Entitlements {
         canAccessTrustLoop: true,
       };
   }
+}
+
+/**
+ * Resolve PlanType from RevenueCat customer info.
+ * Falls back to 'free' if RevenueCat is not configured or has no active entitlement.
+ */
+export function getPlanFromRevenueCat(
+  customerInfo: RevenueCatCustomerInfo | null
+): PlanType {
+  if (!customerInfo) return 'free';
+  if (!hasProEntitlement(customerInfo)) return 'free';
+
+  // Determine monthly vs annual by active product ID
+  const activeProducts = customerInfo.activeSubscriptions;
+  if (activeProducts.some((id) => id.includes('annual'))) return 'pro_annual';
+  return 'pro_monthly';
+}
+
+/**
+ * Resolve PlanType from a legacy profile plan string.
+ * Handles old 'pro' / 'founding' strings for backwards compat.
+ */
+export function normalizePlanType(raw: string | undefined): PlanType {
+  if (!raw) return 'free';
+  if (raw === 'pro' || raw === 'founding' || raw === 'pro_monthly') return 'pro_monthly';
+  if (raw === 'pro_annual') return 'pro_annual';
+  return 'free';
 }
 
 /**
