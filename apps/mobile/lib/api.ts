@@ -273,7 +273,7 @@ export interface GeneratePlaybookParams {
 }
 
 export async function generatePlaybook(params: GeneratePlaybookParams): Promise<Playbook> {
-  return api.post<Playbook>('/playbook/generate', params, 120000);
+  return api.post<Playbook>('/playbook/generate', params, 200000);
 }
 
 export interface GeneratePlaybookFromDescriptionParams {
@@ -290,7 +290,7 @@ export interface GeneratePlaybookFromDescriptionParams {
 export async function generatePlaybookFromDescription(
   params: GeneratePlaybookFromDescriptionParams
 ): Promise<Playbook> {
-  return api.post<Playbook>('/playbook/generate-from-description', params, 120000);
+  return api.post<Playbook>('/playbook/generate-from-description', params, 200000);
 }
 
 export async function getPlaybook(id: string): Promise<Playbook> {
