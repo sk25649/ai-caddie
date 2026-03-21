@@ -30,7 +30,8 @@ class ApiClient {
 
   private async request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeoutMs = 30000
   ): Promise<ApiResponse<T>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -41,18 +42,26 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const res = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    const json = await res.json();
+    try {
+      const res = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
 
-    if (!res.ok) {
-      throw new ApiError(json.error || 'Request failed', res.status, json.details);
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new ApiError(json.error || 'Request failed', res.status, json.details);
+      }
+
+      return json;
+    } finally {
+      clearTimeout(timer);
     }
-
-    return json;
   }
 
   async get<T>(path: string): Promise<T> {
@@ -60,11 +69,11 @@ class ApiClient {
     return res.data as T;
   }
 
-  async post<T>(path: string, body: unknown): Promise<T> {
+  async post<T>(path: string, body: unknown, timeoutMs?: number): Promise<T> {
     const res = await this.request<T>(path, {
       method: 'POST',
       body: JSON.stringify(body),
-    });
+    }, timeoutMs);
     return res.data as T;
   }
 
@@ -264,7 +273,7 @@ export interface GeneratePlaybookParams {
 }
 
 export async function generatePlaybook(params: GeneratePlaybookParams): Promise<Playbook> {
-  return api.post<Playbook>('/playbook/generate', params);
+  return api.post<Playbook>('/playbook/generate', params, 120000);
 }
 
 export interface GeneratePlaybookFromDescriptionParams {
@@ -281,7 +290,7 @@ export interface GeneratePlaybookFromDescriptionParams {
 export async function generatePlaybookFromDescription(
   params: GeneratePlaybookFromDescriptionParams
 ): Promise<Playbook> {
-  return api.post<Playbook>('/playbook/generate-from-description', params);
+  return api.post<Playbook>('/playbook/generate-from-description', params, 120000);
 }
 
 export async function getPlaybook(id: string): Promise<Playbook> {
