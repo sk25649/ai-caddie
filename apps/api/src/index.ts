@@ -61,6 +61,16 @@ async function start() {
     console.log('[DB] Connection OK');
   } catch (err) {
     console.error('[DB] Connection FAILED:', err);
+    return;
+  }
+
+  // Safe schema patches — idempotent, fixes missing columns from migration drift
+  try {
+    await db.execute(sql`ALTER TABLE playbooks ADD COLUMN IF NOT EXISTS caddie_notes jsonb`);
+    await db.execute(sql`ALTER TABLE playbooks ALTER COLUMN course_id DROP NOT NULL`);
+    console.log('[DB] Schema patches OK');
+  } catch (err) {
+    console.error('[DB] Schema patches failed:', err);
   }
 }
 
