@@ -75,6 +75,14 @@ class ApiClient {
     });
     return res.data as T;
   }
+
+  async patch<T>(path: string, body: unknown): Promise<T> {
+    const res = await this.request<T>(path, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return res.data as T;
+  }
 }
 
 export class ApiError extends Error {
@@ -243,6 +251,7 @@ export interface Playbook {
   projectedScore: number | null;
   driverHoles: number[] | null;
   parChanceHoles: number[] | null;
+  caddieNotes?: string[] | null;
   generatedAt: string | null;
 }
 
@@ -293,4 +302,8 @@ export async function saveRound(params: SaveRoundParams): Promise<RoundScore> {
 
 export async function getRounds(): Promise<RoundScore[]> {
   return api.get<RoundScore[]>('/rounds');
+}
+
+export async function updatePlaybookNote(playbookId: string, holeIndex: number, note: string): Promise<void> {
+  await api.patch(`/playbook/${playbookId}/notes`, { holeIndex, note });
 }

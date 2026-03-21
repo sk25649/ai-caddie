@@ -118,7 +118,8 @@ export function buildPlaybookPrompt(
   course: CourseWithHoles,
   teeName: string,
   weather: WeatherData,
-  scoringGoal: string
+  scoringGoal: string,
+  caddieNotes?: string[]
 ): string {
   const clubs = profile.clubs
     .sort((a, b) => (b.carryDistance || 0) - (a.carryDistance || 0))
@@ -131,13 +132,17 @@ export function buildPlaybookPrompt(
 
   const holesData = course.holes
     .sort((a, b) => a.holeNumber - b.holeNumber)
-    .map((h) => ({
-      number: h.holeNumber,
-      par: h.par,
-      yardage: (h.yardages as Record<string, number>)[teeName],
-      handicap: h.handicapIndex,
-      intel: h.holeIntel,
-    }));
+    .map((h) => {
+      const note = caddieNotes?.[h.holeNumber - 1];
+      return {
+        number: h.holeNumber,
+        par: h.par,
+        yardage: (h.yardages as Record<string, number>)[teeName],
+        handicap: h.handicapIndex,
+        intel: h.holeIntel,
+        ...(note ? { caddieNote: note } : {}),
+      };
+    });
 
   const windDeg = weather?.wind_deg ?? 0;
   const windSpeed = weather?.wind_speed ?? 0;

@@ -121,6 +121,7 @@ export const playbooks = pgTable(
     projectedScore: integer('projected_score'),
     driverHoles: jsonb('driver_holes'),
     parChanceHoles: jsonb('par_chance_holes'),
+    caddieNotes: jsonb('caddie_notes'),
 
     generatedAt: timestamp('generated_at').defaultNow(),
   },
