@@ -276,6 +276,84 @@ export async function generatePlaybook(params: GeneratePlaybookParams): Promise<
   return api.post<Playbook>('/playbook/generate', params, 200000);
 }
 
+export interface StreamCallbacks {
+  onMeta: (meta: { pre_round_talk: string; projected_score: number; driver_holes: number[]; par_chance_holes: number[] }) => void;
+  onHole: (hole: HoleStrategy) => void;
+  onDone: (data: { id: string }) => void;
+  onComplete: (playbook: Playbook) => void;
+  onError: (error: string) => void;
+}
+
+export async function generatePlaybookStream(
+  params: GeneratePlaybookParams,
+  callbacks: StreamCallbacks
+): Promise<void> {
+  const token = api.getToken();
+  const response = await fetch(`${API_URL}/playbook/generate-stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const json = await response.json();
+    throw new ApiError(json.error || 'Stream request failed', response.status, json.details);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new ApiError('No response body', 500);
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Parse SSE events from buffer
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || ''; // keep incomplete last part
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      const lines = part.split('\n');
+      const eventLine = lines.find((l) => l.startsWith('event:'));
+      const dataLine = lines.find((l) => l.startsWith('data:'));
+      if (!eventLine || !dataLine) continue;
+
+      const eventType = eventLine.slice(7);
+      const data = dataLine.slice(6);
+
+      try {
+        switch (eventType) {
+          case 'meta':
+            callbacks.onMeta(JSON.parse(data));
+            break;
+          case 'hole':
+            callbacks.onHole(JSON.parse(data));
+            break;
+          case 'done':
+            callbacks.onDone(JSON.parse(data));
+            break;
+          case 'complete':
+            callbacks.onComplete(JSON.parse(data));
+            break;
+          case 'error':
+            callbacks.onError(JSON.parse(data).error);
+            break;
+        }
+      } catch {
+        // Skip malformed events
+      }
+    }
+  }
+}
+
 export interface GeneratePlaybookFromDescriptionParams {
   courseName: string;
   teeName: string;

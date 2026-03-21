@@ -21,12 +21,19 @@ export default function PlaybookScreen() {
   const setScore = useRoundStore((s) => s.setScore);
   const setCurrentHole = useRoundStore((s) => s.setCurrentHole);
   const holesCount = useRoundStore((s) => s.holesCount);
+  const holesStart = useRoundStore((s) => s.holesStart);
   const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
   const holeNotes = useRoundStore((s) => s.holeNotes);
   const setHoleNote = useRoundStore((s) => s.setHoleNote);
+  const streamingStatus = useRoundStore((s) => s.streamingStatus);
+  const streamingHoles = useRoundStore((s) => s.streamingHoles);
+  const streamingMeta = useRoundStore((s) => s.streamingMeta);
+  const selectedTee = useRoundStore((s) => s.selectedTee);
 
   const [preRoundOpen, setPreRoundOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const isStreaming = streamingStatus === 'streaming';
 
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -47,18 +54,29 @@ export default function PlaybookScreen() {
   }, []);
 
   useEffect(() => {
-    if (!playbook || !course) router.back();
-  }, [playbook, course, router]);
+    if (!isStreaming && !playbook && !course) router.back();
+  }, [playbook, course, router, isStreaming]);
 
-  if (!playbook || !course) return null;
+  if (!course) return null;
 
-  const allHoles = playbook.holeStrategies;
-  const holes = allHoles.slice(0, holesCount);
-  const teeInfo = (course.tees as TeeInfo[]).find((t) => t.name === playbook.teeName);
+  // Use playbook data if complete, otherwise use streaming data
+  const allHoles = playbook
+    ? playbook.holeStrategies
+    : streamingHoles.filter((h): h is NonNullable<typeof h> => h !== null);
+  const holes = playbook
+    ? playbook.holeStrategies.slice(holesStart, holesStart + holesCount)
+    : streamingHoles.slice(holesStart, holesStart + holesCount);
+  const loadedHoleCount = holes.filter((h) => h !== null).length;
+  const teeName = playbook?.teeName || selectedTee || '';
+  const teeInfo = (course.tees as TeeInfo[]).find((t) => t.name === teeName);
   const totalYds = teeInfo?.totalYardage || 0;
-  const totalPar = holes.reduce((s, h) => s + h.par, 0);
-  const parChances = holes.filter((h) => h.is_par_chance).length;
-  const holesPlayed = scores.slice(0, holesCount).filter((s) => s !== null).length;
+  const loadedHoles = holes.filter((h): h is NonNullable<typeof h> => h !== null);
+  const totalPar = loadedHoles.reduce((s, h) => s + h.par, 0);
+  const parChances = loadedHoles.filter((h) => h.is_par_chance).length;
+  const holesPlayed = scores.slice(holesStart, holesStart + holesCount).filter((s) => s !== null).length;
+  const preRoundTalk = playbook?.preRoundTalk || streamingMeta?.pre_round_talk;
+  const projectedScore = playbook?.projectedScore || streamingMeta?.projected_score;
+  const driverHolesCount = playbook?.driverHoles?.length || streamingMeta?.driver_holes?.length || 0;
 
   const handleFinishRound = () => {
     router.push('/post-round/summary');
@@ -96,16 +114,30 @@ export default function PlaybookScreen() {
           {course.name}
         </Text>
         <Text className="text-[15px] text-cream-dim mt-1.5">
-          {playbook.teeName} Tees · {holesCount} holes · Par {totalPar}
+          {teeName} Tees · {holesCount} holes{totalPar > 0 ? ` · Par ${totalPar}` : ''}
+          {isStreaming ? ` · ${loadedHoleCount}/${holesCount} loaded` : ''}
         </Text>
       </View>
+
+      {/* Streaming indicator */}
+      {isStreaming && loadedHoleCount === 0 && (
+        <View className="items-center py-10">
+          <Text className="text-3xl mb-4">🏌️‍♂️</Text>
+          <Text className="text-lg text-gold font-semibold mb-2">
+            Your caddie is studying the course...
+          </Text>
+          <Text className="text-cream-dim text-center leading-5 px-6">
+            Analyzing {course.name} with your game profile, weather conditions, and scoring goals.
+          </Text>
+        </View>
+      )}
 
       {/* Targets */}
       <View className="flex-row justify-center gap-3.5 py-4 px-5 bg-black/25 border-b border-gold/15">
         <View className="items-center min-w-[80px]">
           <Text className="text-cream-dim text-[13px] mb-1">Projected</Text>
           <Text className="text-2xl text-gold" style={{ fontFamily: 'serif' }}>
-            {playbook.projectedScore || '—'}
+            {projectedScore || '—'}
           </Text>
         </View>
         <View className="items-center min-w-[80px]">
@@ -117,7 +149,7 @@ export default function PlaybookScreen() {
         <View className="items-center min-w-[80px]">
           <Text className="text-cream-dim text-[13px] mb-1">Driver Holes</Text>
           <Text className="text-2xl text-danger" style={{ fontFamily: 'serif' }}>
-            {playbook.driverHoles?.length || 0}
+            {driverHolesCount}
           </Text>
         </View>
       </View>
@@ -131,21 +163,25 @@ export default function PlaybookScreen() {
       )}
 
       {/* Print Yardage Book */}
-      <Pressable
-        onPress={handlePrintYardageBook}
-        disabled={isPrinting}
-        className="mx-4 mt-3 py-3 px-4 bg-black/20 border border-gold/20 rounded-xl flex-row items-center justify-center gap-2"
-      >
-        <Text className={`text-sm font-semibold ${isPrinting ? 'text-cream-dim' : 'text-gold'}`}>
-          {isPrinting ? 'Generating PDF...' : 'Print Yardage Book'}
-        </Text>
-      </Pressable>
+      {playbook && (
+        <Pressable
+          onPress={handlePrintYardageBook}
+          disabled={isPrinting}
+          className="mx-4 mt-3 py-3 px-4 bg-black/20 border border-gold/20 rounded-xl flex-row items-center justify-center gap-2"
+        >
+          <Text className={`text-sm font-semibold ${isPrinting ? 'text-cream-dim' : 'text-gold'}`}>
+            {isPrinting ? 'Generating PDF...' : 'Print Yardage Book'}
+          </Text>
+        </Pressable>
+      )}
 
       {/* Live Score */}
-      <LiveScoreBar holes={holes} scores={scores.slice(0, holesCount)} />
+      {loadedHoleCount > 0 && (
+        <LiveScoreBar holes={loadedHoles} scores={scores.slice(holesStart, holesStart + holesCount)} />
+      )}
 
       {/* Pre-Round Talk */}
-      {playbook.preRoundTalk ? (
+      {preRoundTalk ? (
         <View className="mx-4 mt-4 mb-2 bg-green-card border border-gold/20 rounded-2xl overflow-hidden">
           <Pressable
             onPress={() => setPreRoundOpen((o) => !o)}
@@ -156,30 +192,39 @@ export default function PlaybookScreen() {
             </Text>
             <Text className="text-gold text-lg">{preRoundOpen ? '▲' : '▼'}</Text>
           </Pressable>
-          {preRoundOpen && <PreRoundTalk content={playbook.preRoundTalk} />}
+          {preRoundOpen && <PreRoundTalk content={preRoundTalk} />}
         </View>
       ) : null}
 
       {/* Hole Selector */}
-      <HoleSelector
-        holes={holes}
-        currentHole={currentHole}
-        scores={scores.slice(0, holesCount)}
-        onSelect={setCurrentHole}
-      />
-
-      {/* Current Hole Card */}
-      {holes[currentHole] && (
-        <HoleCard
-          hole={holes[currentHole]}
-          score={scores[currentHole]}
-          onScore={(score) => setScore(currentHole, score)}
-          onNext={() => setCurrentHole(Math.min(currentHole + 1, holesCount - 1))}
-          isCompetitionMode={isCompetitionMode}
-          note={holeNotes[currentHole]}
-          onNote={(n) => handleNoteChange(currentHole, n)}
+      {loadedHoleCount > 0 && (
+        <HoleSelector
+          holes={loadedHoles}
+          currentHole={currentHole}
+          scores={scores.slice(holesStart, holesStart + holesCount)}
+          onSelect={setCurrentHole}
+          holesStart={holesStart}
         />
       )}
+
+      {/* Current Hole Card */}
+      {holes[currentHole] ? (
+        <HoleCard
+          hole={holes[currentHole]!}
+          score={scores[holesStart + currentHole]}
+          onScore={(score) => setScore(holesStart + currentHole, score)}
+          onNext={() => setCurrentHole(Math.min(currentHole + 1, holesCount - 1))}
+          isCompetitionMode={isCompetitionMode}
+          note={holeNotes[holesStart + currentHole]}
+          onNote={(n) => handleNoteChange(holesStart + currentHole, n)}
+        />
+      ) : isStreaming ? (
+        <View className="mx-4 mt-4 p-6 bg-green-card border border-gold/10 rounded-2xl items-center">
+          <Text className="text-cream-dim text-[15px]">
+            Analyzing hole {holesStart + currentHole + 1}...
+          </Text>
+        </View>
+      ) : null}
 
       {/* Finish Round */}
       {holesPlayed >= 1 && (

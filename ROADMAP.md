@@ -26,12 +26,12 @@
 - [x] Chunk 2: HoleCard visual redesign — scan-first layout
 - [x] Chunk 3: Voice readout — one-tap audio caddie
 
-### Feature: Progressive Playbook (sub-10s perceived generation) — In Progress
+### Feature: Progressive Playbook (sub-10s perceived generation) — Complete
 - [x] Chunk 1: Lean output format — stop generating what we already have
 - [x] Chunk 2: SSE streaming endpoint with Claude streaming API
 - [x] Chunk 3: Streaming JSON parser — emit holes as they complete
 - [x] Chunk 4: Parallel front-9 / back-9 Claude calls
-- [ ] Chunk 5: Mobile streaming client + progressive playbook UI
+- [x] Chunk 5: Mobile streaming client + progressive playbook UI
 
 ---
 

@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useRoundStore } from '../../stores/roundStore';
 import { useGeneratePlaybook, useGeneratePlaybookFromDescription } from '../../hooks/usePlaybook';
+import { generatePlaybookStream, getPlaybook } from '../../lib/api';
+import { cachePlaybook } from '../../lib/storage';
 import { Button } from '../../components/ui/Button';
 
 const SCORING_GOALS = [
@@ -46,7 +48,8 @@ export default function DetailsScreen() {
   const setRoundDetails = useRoundStore((s) => s.setRoundDetails);
   const setPlaybook = useRoundStore((s) => s.setPlaybook);
   const holesCount = useRoundStore((s) => s.holesCount);
-  const setHolesCount = useRoundStore((s) => s.setHolesCount);
+  const holesStart = useRoundStore((s) => s.holesStart);
+  const setHoleSelection = useRoundStore((s) => s.setHoleSelection);
   const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
   const setCompetitionMode = useRoundStore((s) => s.setCompetitionMode);
   const isCustomCourse = useRoundStore((s) => s.isCustomCourse);
@@ -57,6 +60,10 @@ export default function DetailsScreen() {
   const customCourseState = useRoundStore((s) => s.customCourseState);
   const generatePlaybook = useGeneratePlaybook();
   const generateFromDescription = useGeneratePlaybookFromDescription();
+  const setStreamingStatus = useRoundStore((s) => s.setStreamingStatus);
+  const addStreamingHole = useRoundStore((s) => s.addStreamingHole);
+  const setStreamingMeta = useRoundStore((s) => s.setStreamingMeta);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   const today = formatDate(new Date());
   const tomorrow = formatDate(new Date(Date.now() + 86400000));
@@ -94,21 +101,42 @@ export default function DetailsScreen() {
         }
       );
     } else if (course && tee) {
-      generatePlaybook.mutate(
+      // Use streaming generation — navigate immediately
+      setStreamingStatus('streaming');
+      setStreamError(null);
+      router.push('/round/playbook');
+
+      generatePlaybookStream(
+        { courseId: course.id, teeName: tee, roundDate, teeTime, scoringGoal },
         {
-          courseId: course.id,
-          teeName: tee,
-          roundDate,
-          teeTime,
-          scoringGoal,
-        },
-        {
-          onSuccess: (playbook) => {
+          onMeta: (meta) => setStreamingMeta(meta),
+          onHole: (hole) => addStreamingHole(hole),
+          onDone: async ({ id }) => {
+            // Fetch the full saved playbook from DB
+            try {
+              const fullPlaybook = await getPlaybook(id);
+              setPlaybook(fullPlaybook);
+              cachePlaybook(fullPlaybook);
+            } catch {
+              // Streaming data is already in store, this is just for persistence
+            }
+            setStreamingStatus('done');
+          },
+          onComplete: (playbook) => {
+            // Cache hit — full playbook returned immediately
             setPlaybook(playbook);
-            router.push('/round/playbook');
+            cachePlaybook(playbook);
+            setStreamingStatus('done');
+          },
+          onError: (error) => {
+            setStreamingStatus('error');
+            setStreamError(error);
           },
         }
-      );
+      ).catch((err) => {
+        setStreamingStatus('error');
+        setStreamError(err instanceof Error ? err.message : 'Stream failed');
+      });
     }
   };
 
@@ -131,22 +159,26 @@ export default function DetailsScreen() {
         Holes
       </Text>
       <View className="flex-row gap-2 mb-6">
-        {([9, 18] as const).map((n) => (
-          <Pressable
-            key={n}
-            onPress={() => { Haptics.selectionAsync(); setHolesCount(n); }}
-            className={`flex-1 py-3.5 rounded-xl border-2 items-center ${
-              holesCount === n ? 'border-gold bg-gold/20' : 'border-gold/15 bg-black/30'
-            }`}
-          >
-            <Text className={`text-base font-semibold ${holesCount === n ? 'text-gold' : 'text-cream-dim'}`}>
-              {n} Holes
-            </Text>
-            <Text className={`text-[13px] mt-0.5 ${holesCount === n ? 'text-gold/70' : 'text-cream-dim/50'}`}>
-              {n === 9 ? 'Front 9' : 'Full Round'}
-            </Text>
-          </Pressable>
-        ))}
+        {([
+          { label: 'Front 9', count: 9 as const, start: 0 as const },
+          { label: 'Back 9', count: 9 as const, start: 9 as const },
+          { label: '18 Holes', count: 18 as const, start: 0 as const },
+        ]).map(({ label, count, start }) => {
+          const active = holesCount === count && holesStart === start;
+          return (
+            <Pressable
+              key={label}
+              onPress={() => { Haptics.selectionAsync(); setHoleSelection(count, start); }}
+              className={`flex-1 py-3.5 rounded-xl border-2 items-center ${
+                active ? 'border-gold bg-gold/20' : 'border-gold/15 bg-black/30'
+              }`}
+            >
+              <Text className={`text-base font-semibold ${active ? 'text-gold' : 'text-cream-dim'}`}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Date */}
@@ -256,35 +288,35 @@ export default function DetailsScreen() {
         </View>
       </View>
 
-      {(generatePlaybook.isPending || generateFromDescription.isPending) && (
+      {generateFromDescription.isPending && (
         <View className="items-center py-10">
           <Text className="text-3xl mb-4">🏌️‍♂️</Text>
           <Text className="text-lg text-gold font-semibold mb-2">
             Your caddie is studying the course...
           </Text>
           <Text className="text-cream-dim text-center leading-5">
-            Analyzing {isCustomCourse ? customCourseName : course?.name} with your game profile, weather conditions,
+            Analyzing {customCourseName} with your game profile, weather conditions,
             and scoring goals.
           </Text>
         </View>
       )}
 
-      {(generatePlaybook.isError || generateFromDescription.isError) && (
+      {(generateFromDescription.isError || streamError) && (
         <View className="bg-danger/12 border border-danger/20 rounded-xl p-4 mb-4">
           <Text className="text-danger font-semibold mb-1">
             Failed to generate playbook.
           </Text>
           <Text className="text-danger/80 text-sm">
-            {(generatePlaybook.error || generateFromDescription.error)?.message || 'Please try again.'}
+            {streamError || generateFromDescription.error?.message || 'Please try again.'}
           </Text>
         </View>
       )}
 
       <Button
-        title={(generatePlaybook.isPending || generateFromDescription.isPending) ? 'Generating...' : 'Generate Playbook'}
+        title={generateFromDescription.isPending ? 'Generating...' : 'Generate Playbook'}
         onPress={handleGenerate}
-        loading={generatePlaybook.isPending || generateFromDescription.isPending}
-        disabled={!scoringGoal || generatePlaybook.isPending || generateFromDescription.isPending}
+        loading={generateFromDescription.isPending}
+        disabled={!scoringGoal || generateFromDescription.isPending}
       />
 
       <View className="h-10" />
