@@ -57,6 +57,7 @@ function makeMockPlayer() {
     play: mocks.mockPlay,
     pause: mocks.mockPause,
     remove: mocks.mockRemove,
+    setPlaybackRate: vi.fn(),
     isLoaded: true, // local files load immediately
     addListener: vi.fn((event: string, cb: (status: { didJustFinish: boolean }) => void) => {
       if (event === 'playbackStatusUpdate') {
