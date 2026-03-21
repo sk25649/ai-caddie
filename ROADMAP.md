@@ -4,6 +4,11 @@
 
 ## Progress
 
+### Feature: ElevenLabs AI Voice — In Progress
+- [ ] Chunk 1: API proxy route for ElevenLabs TTS
+- [ ] Chunk 2: Mobile voice hook (fetch → temp file → playback)
+- [ ] Chunk 3: Replace expo-speech in HoleCard
+
 ### Feature: Competitive Mode — Complete
 - [x] Chunk 1: Any-course playbook via text description
 - [x] Chunk 2: Add print-optimized fields to prompt schema
@@ -798,3 +803,127 @@ Every line of the yardage book is specific to THIS player's bag, THIS player's m
 - `expo-print` has known issues with large HTML files on older Android devices. If a 20-page yardage book causes memory issues, split into front-9 and back-9 PDFs as a fallback.
 - Practice round notes (Chunk 5) require a DB migration for `caddieNotes` column. Run `npm run db:migrate` in the Railway environment after deploying Chunk 5.
 - Competition mode (Chunk 6) does not provide GPS distance to green — that requires per-hole green coordinates which are not in the current schema. This is explicitly deferred. The mode is about UI compliance, not GPS yardage.
+
+---
+
+## Feature: ElevenLabs AI Voice
+
+**Created:** 2026-03-21
+**Status:** In Progress
+**Estimated effort:** ~25 min
+
+**Goal:** Replace Expo's robotic TTS with ElevenLabs AI voice for hole-by-hole caddie readouts.
+
+**In scope:**
+- Server-side ElevenLabs TTS proxy route (API key never exposed to client)
+- Mobile hook: fetch audio → write to temp file → play via expo-av
+- In-memory cache per hole so audio isn't re-fetched on replay
+- Loading state on the 🔊 button while audio fetches
+
+**Out of scope:**
+- Persistent audio caching across app restarts
+- Voice selection UI in settings
+- Pre-generating audio at playbook creation time
+
+**Dependencies:**
+- ElevenLabs API key (`ELEVENLABS_API_KEY` added to Railway env vars manually)
+- `expo-av` + `expo-file-system` packages (not yet in mobile)
+
+---
+
+### Chunk 1: API proxy route for ElevenLabs TTS
+**Estimated effort:** ~10 min
+**Files to modify:**
+- `apps/api/src/routes/voice.ts` (new)
+- `apps/api/src/index.ts`
+
+**Depends on:** none
+
+**What to do:**
+1. Create `apps/api/src/routes/voice.ts` — `POST /voice/speak`, auth-gated
+2. Accept `{ text: string }` body — validate max 2000 chars with zod, return 400 if exceeded
+3. Check `ELEVENLABS_API_KEY` is set — return 503 `{ error: "Voice unavailable" }` if missing
+4. Call ElevenLabs: `POST https://api.elevenlabs.io/v1/text-to-speech/:voiceId`
+   - `voiceId`: `process.env.ELEVENLABS_VOICE_ID ?? 'pNInz6obpgDQGcFmaJgB'` (Adam — clear American male)
+   - Headers: `xi-api-key`, `Content-Type: application/json`, `Accept: audio/mpeg`
+   - Body: `{ text, model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }`
+   - `eleven_turbo_v2_5` = fastest + cheapest ElevenLabs model
+5. Convert binary response to base64: `Buffer.from(await res.arrayBuffer()).toString('base64')`
+6. Return `{ data: { audio: base64, format: "mp3" } }`
+7. Wrap everything in try/catch — return 503 on any ElevenLabs failure
+8. Register in `apps/api/src/index.ts`: `app.route('/voice', voiceRoutes)`
+
+**Acceptance criteria:**
+- [ ] `POST /voice/speak` with `{ text: "Hole 1. Par 4." }` returns `{ data: { audio: "...", format: "mp3" } }`
+- [ ] Missing `ELEVENLABS_API_KEY` returns 503
+- [ ] Text > 2000 chars returns 400
+- [ ] ElevenLabs error returns 503 (not 500)
+
+---
+
+### Chunk 2: Mobile voice hook (fetch → temp file → playback)
+**Estimated effort:** ~10 min
+**Files to modify:**
+- `apps/mobile/package.json` (add expo-av, expo-file-system via `npx expo install`)
+- `apps/mobile/hooks/useElevenLabsVoice.ts` (new)
+
+**Depends on:** Chunk 1
+
+**What to do:**
+1. Run `npx expo install expo-av expo-file-system` in `apps/mobile/`
+2. Create `apps/mobile/hooks/useElevenLabsVoice.ts`
+3. Module-level cache: `const audioCache = new Map<string, string>()` (text → local file URI) — persists across renders/holes
+4. Hook returns: `{ speak(text: string): Promise<void>, stop(): void, isSpeaking: boolean, isLoading: boolean }`
+5. `speak(text)` implementation:
+   a. Stop any current playback first
+   b. Set `isLoading = true`
+   c. Cache key: `text.slice(0, 30)` is enough (each hole script is unique)
+   d. If cache miss: call `api.post('/voice/speak', { text }, 30000)` → get `{ audio, format }`
+   e. Decode base64 and write to `FileSystem.cacheDirectory + 'caddie_voice.mp3'` using `FileSystem.writeAsStringAsync` with base64 encoding
+   f. Store URI in cache
+   g. Set `isLoading = false`
+   h. Create and play: `const { sound } = await Audio.Sound.createAsync({ uri })`
+   i. Set `isSpeaking = true`, store sound ref for stop()
+   j. Listen for playback status — set `isSpeaking = false` when done, call `sound.unloadAsync()`
+6. `stop()`: if sound ref exists, call `sound.stopAsync()` then `sound.unloadAsync()`, set `isSpeaking = false`
+7. Cleanup in useEffect return: call `stop()`
+
+**Acceptance criteria:**
+- [ ] `speak()` sets isLoading=true, then isLoading=false + isSpeaking=true when audio starts
+- [ ] Calling `speak()` twice stops the first audio before starting the second
+- [ ] Same text plays from cache on second call (no network request)
+- [ ] `stop()` halts audio immediately
+
+---
+
+### Chunk 3: Replace expo-speech in HoleCard
+**Estimated effort:** ~5 min
+**Files to modify:**
+- `apps/mobile/components/playbook/HoleCard.tsx`
+- `apps/mobile/app/round/playbook.tsx`
+
+**Depends on:** Chunk 2
+
+**What to do:**
+1. In `HoleCard.tsx`:
+   - Remove `import * as Speech from 'expo-speech'`
+   - Remove `isSpeaking` state (now comes from hook)
+   - Add `const { speak, stop, isSpeaking, isLoading } = useElevenLabsVoice()`
+   - `handleVoice`: if `isSpeaking` call `stop()`, else call `speak(buildVoiceScript(hole))`
+   - Voice button: show a faded/disabled state when `isLoading` is true with a "..." label; `⏹` when speaking; `🔊` when idle
+2. In `apps/mobile/app/round/playbook.tsx`:
+   - Remove `import * as Speech from 'expo-speech'`
+   - Remove the `useEffect` that calls `Speech.stop()` on hole change — the hook's internal stop handles this since `speak()` always stops first
+
+**Acceptance criteria:**
+- [ ] Voice button shows loading state on first tap (~1-3s)
+- [ ] Audio plays in AI voice (not robotic)
+- [ ] Stop button works immediately
+- [ ] Navigating to next hole while audio plays stops the audio
+- [ ] Re-tapping same hole plays instantly from cache
+
+**Risks & Unknowns:**
+- ElevenLabs free tier: 10k chars/month. Each hole readout ~50-80 chars → ~1000-1500 chars per full round. Fine for testing, needs paid plan for production use.
+- `expo-av` compatibility with Expo Go 54 — should work but verify on physical device.
+- Base64 audio file size: ~50-100KB per hole. Writing to FileSystem.cacheDirectory is fast.
+- If ElevenLabs is down or key is missing, voice button should fail silently (show an error toast or just go back to idle) — never crash the playbook screen.
