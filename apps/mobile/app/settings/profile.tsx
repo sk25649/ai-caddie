@@ -91,6 +91,9 @@ export default function ProfileSettingsScreen() {
   return (
     <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
       <View className="pt-6 pb-6">
+        <Pressable onPress={() => router.back()} className="py-2 mb-2 self-start">
+          <Text className="text-gold text-base">‹ Back</Text>
+        </Pressable>
         <Text className="text-2xl text-white" style={{ fontFamily: 'serif' }}>
           Edit Profile
         </Text>
