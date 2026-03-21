@@ -7,7 +7,7 @@
 ### Feature: Competitive Mode — Pending
 - [ ] Chunk 1: Any-course playbook via text description
 - [x] Chunk 2: Add print-optimized fields to prompt schema
-- [ ] Chunk 3: Yardage book HTML template (server-side)
+- [x] Chunk 3: Yardage book HTML template (server-side)
 - [ ] Chunk 4: PDF export in mobile app
 - [ ] Chunk 5: Practice round caddie notes
 - [x] Chunk 6: Competition on-course mode (Rule 4.3 compliant UI)
@@ -604,13 +604,13 @@ Every line of the yardage book is specific to THIS player's bag, THIS player's m
    - Return `{ data: { html: string } }` as JSON
 
 **Acceptance criteria:**
-- [ ] `GET /playbook/:id/yardage-book` returns valid HTML that renders correctly in a browser
-- [ ] Cover page contains player name, handicap, course, date, pre-round talk, and bag summary
-- [ ] Each hole page contains: tee club + carry, aim point, approach club + distance, do_this (2-3 items), dont_do (1-2 items), terrain note (if present), danger, miss left/right/short (first sentence), score range footer
-- [ ] dont_do items reference the player's primary miss where relevant (validated in generated content)
-- [ ] Scorecard back page has all 18 holes with par, HDCP, target score, and scoring goals
-- [ ] Old playbooks without do_this/dont_do fields render without crashing (fallback to play_bullets/danger)
-- [ ] HTML renders correctly in Chrome and Safari (the two print engines players will use)
+- [x] `GET /playbook/:id/yardage-book` returns valid HTML that renders correctly in a browser
+- [x] Cover page contains player name, handicap, course, date, pre-round talk, and bag summary
+- [x] Each hole page contains: tee club + carry, aim point, approach club + distance, do_this (2-3 items), dont_do (1-2 items), terrain note (if present), danger, miss left/right/short (first sentence), score range footer
+- [x] dont_do items reference the player's primary miss where relevant (validated in generated content)
+- [x] Scorecard back page has all 18 holes with par, HDCP, target score, and scoring goals
+- [x] Old playbooks without do_this/dont_do fields render without crashing (fallback to play_bullets/danger)
+- [x] HTML renders correctly in Chrome and Safari (the two print engines players will use)
 
 **Key decisions:**
 - Return HTML as JSON `{ data: { html } }` rather than `Content-Type: text/html` — consistent with all other API responses, and easier to handle in the mobile client
