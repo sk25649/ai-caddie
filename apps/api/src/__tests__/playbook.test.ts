@@ -143,6 +143,20 @@ describe('POST /playbook/generate — fresh generation', () => {
     expect((await res.json()).error).toContain('Failed to generate playbook');
   });
 
+  it('retries when Claude returns non-text content type (treats as empty → invalid JSON)', async () => {
+    setupHappyPath();
+    // callClaudeWithRetry retries internally — DB is NOT re-queried between attempts
+    // First attempt returns a tool_use block (non-text), second returns valid JSON
+    mockCreate
+      .mockResolvedValueOnce({ content: [{ type: 'tool_use', id: 'x', name: 'fn', input: {} }] })
+      .mockResolvedValueOnce({ content: [{ type: 'text', text: JSON.stringify(mockPlaybookData) }] });
+    mockInsert(mockDb, [mockPlaybook]);
+
+    const res = await authedPost(VALID_BODY);
+    expect(res.status).toBe(201);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
   it('retries once on invalid JSON from Claude', async () => {
     setupHappyPath();
     // callClaudeWithRetry retries internally — DB is NOT re-queried between attempts

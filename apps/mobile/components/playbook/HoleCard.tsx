@@ -3,6 +3,7 @@ import { useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import type { HoleStrategy } from '../../lib/api';
+import { buildVoiceScript } from '../../lib/voiceScript';
 import { Card } from '../ui/Card';
 import { SectionLabel } from '../ui/SectionLabel';
 
@@ -32,33 +33,6 @@ function scoreColor(d: number): string {
   return '#cc3333';
 }
 
-function buildVoiceScript(hole: HoleStrategy): string {
-  const parts: string[] = [
-    `Hole ${hole.hole_number}. Par ${hole.par}. ${hole.yardage} yards.`,
-    `Club: ${hole.tee_club}.`,
-  ];
-
-  if (hole.aim_point) {
-    parts.push(`Aim at ${hole.aim_point}.`);
-  }
-  if (hole.carry_target) {
-    parts.push(`Carry ${hole.carry_target} yards to the landing zone.`);
-  }
-
-  if (hole.play_bullets && hole.play_bullets.length > 0) {
-    hole.play_bullets.forEach((b) => parts.push(b));
-  } else if (hole.strategy) {
-    parts.push(hole.strategy);
-  }
-
-  if (hole.terrain_note && hole.terrain_note.trim().length > 0) {
-    parts.push(`Terrain warning: ${hole.terrain_note}`);
-  }
-
-  parts.push(`Danger: ${hole.danger}`);
-
-  return parts.join(' ');
-}
 
 export function HoleCard({ hole, score, onScore }: HoleCardProps) {
   const [activeMiss, setActiveMiss] = useState<MissType>(null);

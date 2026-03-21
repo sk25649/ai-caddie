@@ -120,7 +120,7 @@ describe('buildPlaybookPrompt — club sorting and fairway finder', () => {
     expect(prompt).toContain('Driver: 240 yds carry\n');
   });
 
-  it('handles null carryDistance as 0 for sorting', () => {
+  it('handles null carryDistance as 0 for sorting (null in b position)', () => {
     const profile = {
       ...baseProfile,
       clubs: [
@@ -128,10 +128,36 @@ describe('buildPlaybookPrompt — club sorting and fairway finder', () => {
         { clubName: 'Driver', carryDistance: 240, isFairwayFinder: false },
       ],
     };
-    // Should not throw
-    expect(() =>
-      buildPlaybookPrompt(profile, baseCourse, 'White', baseWeather, 'Break 90')
-    ).not.toThrow();
+    // Should not throw; Putter (null) sorted after Driver (240)
+    const prompt = buildPlaybookPrompt(profile, baseCourse, 'White', baseWeather, 'Break 90');
+    expect(prompt.indexOf('Driver')).toBeLessThan(prompt.indexOf('Putter'));
+  });
+
+  it('handles null carryDistance as 0 for sorting (null in a position)', () => {
+    const profile = {
+      ...baseProfile,
+      clubs: [
+        { clubName: 'Driver', carryDistance: 240, isFairwayFinder: false },
+        { clubName: 'Putter', carryDistance: null, isFairwayFinder: false },
+        { clubName: 'SW', carryDistance: null, isFairwayFinder: false },
+      ],
+    };
+    // Sorting 3 clubs forces V8's sort to compare null-vs-null (a.carryDistance null)
+    const prompt = buildPlaybookPrompt(profile, baseCourse, 'White', baseWeather, 'Break 90');
+    // Driver should still appear first regardless of Putter/SW order
+    expect(prompt.indexOf('Driver')).toBeLessThan(prompt.indexOf('Putter'));
+  });
+
+  it('treats null isFairwayFinder as false (no star label)', () => {
+    const profile = {
+      ...baseProfile,
+      clubs: [
+        { clubName: '5-Wood', carryDistance: 220, isFairwayFinder: null },
+      ],
+    };
+    const prompt = buildPlaybookPrompt(profile, baseCourse, 'White', baseWeather, 'Break 90');
+    expect(prompt).toContain('5-Wood: 220 yds carry');
+    expect(prompt).not.toContain('★ FAIRWAY FINDER');
   });
 
   it('mutates the input clubs array (known side effect)', () => {
