@@ -56,8 +56,8 @@ export default function PricingScreen() {
     {
       id: 'pro_annual',
       name: 'Pro Annual',
-      price: '$79',
-      period: '/year',
+      price: '$89.99',
+      period: '/yr',
       description: 'Best value — save vs monthly',
       features: [
         'Unlimited playbooks',
@@ -75,8 +75,8 @@ export default function PricingScreen() {
     {
       id: 'pro_monthly',
       name: 'Pro Monthly',
-      price: '$9',
-      period: '/month',
+      price: '$14.99',
+      period: '/mo',
       description: 'Full Pro access, cancel anytime',
       features: [
         'Unlimited playbooks',
@@ -177,7 +177,7 @@ export default function PricingScreen() {
               <View>
                 <Text className="text-cream font-semibold mb-1">Annual vs monthly?</Text>
                 <Text className="text-cream-dim text-sm">
-                  Annual saves you roughly 30% compared to monthly. Both include the same Pro features.
+                  Annual saves you over 50% compared to monthly. Both include the same Pro features.
                 </Text>
               </View>
 

@@ -74,7 +74,7 @@ export function getPlanFromRevenueCat(
  */
 export function normalizePlanType(raw: string | undefined): PlanType {
   if (!raw) return 'free';
-  if (raw === 'pro' || raw === 'founding' || raw === 'pro_monthly') return 'pro_monthly';
+  if (raw === 'pro' || raw === 'pro_monthly') return 'pro_monthly';
   if (raw === 'pro_annual') return 'pro_annual';
   return 'free';
 }

@@ -9,8 +9,8 @@
  * 2. Add iOS app, get the public SDK key
  * 3. Set EXPO_PUBLIC_REVENUECAT_IOS_KEY in .env
  * 4. Create products in App Store Connect:
- *    - com.aicaddie.pro.monthly
- *    - com.aicaddie.pro.annual
+ *    - ai_caddie_pro_monthly
+ *    - ai_caddie_pro_annual
  * 5. Create entitlement "pro" in RevenueCat dashboard
  * 6. Install react-native-purchases: npx expo install react-native-purchases
  * 7. Uncomment the SDK initialization below
@@ -18,8 +18,8 @@
 
 // Product IDs for App Store Connect
 export const REVENUECAT_PRODUCT_IDS = {
-  PRO_MONTHLY: 'com.aicaddie.pro.monthly',
-  PRO_ANNUAL: 'com.aicaddie.pro.annual',
+  PRO_MONTHLY: 'ai_caddie_pro_monthly',
+  PRO_ANNUAL: 'ai_caddie_pro_annual',
 } as const;
 
 // RevenueCat entitlement identifier
