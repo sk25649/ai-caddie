@@ -12,6 +12,7 @@ const baseHole: HoleStrategy = {
   play_bullets: [
     'Hit 3-Hybrid to left edge of bunker.',
     'Approach with 8-iron from 155.',
+    'Bogey is perfectly fine here.',
   ],
   terrain_note: '',
   miss_left: 'Rough left, chip out.',
@@ -23,16 +24,23 @@ const baseHole: HoleStrategy = {
 };
 
 describe('buildVoiceScript', () => {
+  it('includes hole number, yardage, and par', () => {
+    const script = buildVoiceScript(baseHole);
+    expect(script).toContain('Hole 5');
+    expect(script).toContain('380 yard par 4');
+  });
+
   it('includes club and aim point', () => {
     const script = buildVoiceScript(baseHole);
     expect(script).toContain('3-Hybrid');
     expect(script).toContain('aim left edge of right fairway bunker');
   });
 
-  it('includes only the first play bullet', () => {
+  it('includes first two play bullets only', () => {
     const script = buildVoiceScript(baseHole);
     expect(script).toContain('Hit 3-Hybrid to left edge of bunker.');
-    expect(script).not.toContain('Approach with 8-iron');
+    expect(script).toContain('Approach with 8-iron from 155.');
+    expect(script).not.toContain('Bogey is perfectly fine');
   });
 
   it('includes danger', () => {
@@ -51,10 +59,11 @@ describe('buildVoiceScript', () => {
     expect(script).toContain('get this one');
   });
 
-  it('stays under 40 words', () => {
+  it('stays between 25-55 words', () => {
     const script = buildVoiceScript(baseHole);
     const wordCount = script.split(/\s+/).length;
-    expect(wordCount).toBeLessThanOrEqual(40);
+    expect(wordCount).toBeGreaterThanOrEqual(25);
+    expect(wordCount).toBeLessThanOrEqual(55);
   });
 
   it('omits aim point when missing', () => {
@@ -71,7 +80,7 @@ describe('buildVoiceScript', () => {
       strategy: 'Lay up short of the bunkers.',
     };
     const script = buildVoiceScript(hole);
-    expect(script).not.toContain('Lay up');
+    expect(script).toContain('Lay up short of the bunkers.');
   });
 
   it('handles missing danger gracefully', () => {
