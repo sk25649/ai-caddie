@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 import { speakVoice } from '../lib/api';
 
@@ -17,13 +18,13 @@ interface UseElevenLabsVoiceReturn {
 export function useElevenLabsVoice(): UseElevenLabsVoiceReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
 
   const stop = useCallback(() => {
-    if (soundRef.current) {
-      soundRef.current.stopAsync().catch(() => {});
-      soundRef.current.unloadAsync().catch(() => {});
-      soundRef.current = null;
+    if (playerRef.current) {
+      playerRef.current.pause();
+      playerRef.current.remove();
+      playerRef.current = null;
     }
     setIsSpeaking(false);
   }, []);
@@ -53,20 +54,20 @@ export function useElevenLabsVoice(): UseElevenLabsVoiceReturn {
 
       setIsLoading(false);
 
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri });
-      soundRef.current = sound;
+      await setAudioModeAsync({ playsInSilentMode: true });
+      const player = createAudioPlayer({ uri });
+      playerRef.current = player;
       setIsSpeaking(true);
 
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync().catch(() => {});
-          soundRef.current = null;
+      player.addListener('playbackStatusUpdate', (status) => {
+        if (status.didJustFinish) {
+          player.remove();
+          playerRef.current = null;
           setIsSpeaking(false);
         }
       });
 
-      await sound.playAsync();
+      player.play();
     } catch {
       setIsLoading(false);
       setIsSpeaking(false);

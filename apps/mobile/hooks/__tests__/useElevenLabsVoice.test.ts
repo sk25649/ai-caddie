@@ -3,37 +3,33 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 
 // ── Hoisted mocks ──────────────────────────────────────────────────────────
 
-let onPlaybackStatusUpdate: ((status: { isLoaded: boolean; didJustFinish: boolean }) => void) | null = null;
+let onPlaybackStatusUpdate: ((status: { didJustFinish: boolean }) => void) | null = null;
 
 const mocks = vi.hoisted(() => {
-  const mockPlayAsync = vi.fn().mockResolvedValue(undefined);
-  const mockStopAsync = vi.fn().mockResolvedValue(undefined);
-  const mockUnloadAsync = vi.fn().mockResolvedValue(undefined);
-  const mockSetOnPlaybackStatusUpdate = vi.fn();
-  const mockCreateAsync = vi.fn();
+  const mockPlay = vi.fn();
+  const mockPause = vi.fn();
+  const mockRemove = vi.fn();
+  const mockAddListener = vi.fn();
+  const mockCreateAudioPlayer = vi.fn();
   const mockSetAudioMode = vi.fn().mockResolvedValue(undefined);
   const mockWriteAsStringAsync = vi.fn().mockResolvedValue(undefined);
   const mockSpeakVoice = vi.fn().mockResolvedValue({ audio: 'base64audiodata==', format: 'mp3' });
 
   return {
-    mockPlayAsync,
-    mockStopAsync,
-    mockUnloadAsync,
-    mockSetOnPlaybackStatusUpdate,
-    mockCreateAsync,
+    mockPlay,
+    mockPause,
+    mockRemove,
+    mockAddListener,
+    mockCreateAudioPlayer,
     mockSetAudioMode,
     mockWriteAsStringAsync,
     mockSpeakVoice,
   };
 });
 
-vi.mock('expo-av', () => ({
-  Audio: {
-    Sound: {
-      createAsync: mocks.mockCreateAsync,
-    },
-    setAudioModeAsync: mocks.mockSetAudioMode,
-  },
+vi.mock('expo-audio', () => ({
+  createAudioPlayer: mocks.mockCreateAudioPlayer,
+  setAudioModeAsync: mocks.mockSetAudioMode,
 }));
 
 vi.mock('expo-file-system', () => ({
@@ -50,13 +46,15 @@ import { useElevenLabsVoice } from '../useElevenLabsVoice';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function makeMockSound() {
+function makeMockPlayer() {
   return {
-    playAsync: mocks.mockPlayAsync,
-    stopAsync: mocks.mockStopAsync,
-    unloadAsync: mocks.mockUnloadAsync,
-    setOnPlaybackStatusUpdate: vi.fn((cb: (status: { isLoaded: boolean; didJustFinish: boolean }) => void) => {
-      onPlaybackStatusUpdate = cb;
+    play: mocks.mockPlay,
+    pause: mocks.mockPause,
+    remove: mocks.mockRemove,
+    addListener: vi.fn((event: string, cb: (status: { didJustFinish: boolean }) => void) => {
+      if (event === 'playbackStatusUpdate') {
+        onPlaybackStatusUpdate = cb;
+      }
     }),
   };
 }
@@ -67,8 +65,7 @@ describe('useElevenLabsVoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onPlaybackStatusUpdate = null;
-    // Default createAsync returns a fresh mock sound
-    mocks.mockCreateAsync.mockResolvedValue({ sound: makeMockSound() });
+    mocks.mockCreateAudioPlayer.mockReturnValue(makeMockPlayer());
     mocks.mockSpeakVoice.mockResolvedValue({ audio: 'base64audiodata==', format: 'mp3' });
     mocks.mockWriteAsStringAsync.mockResolvedValue(undefined);
   });
@@ -103,7 +100,7 @@ describe('useElevenLabsVoice', () => {
       'base64audiodata==',
       { encoding: 'base64' }
     );
-    expect(mocks.mockPlayAsync).toHaveBeenCalled();
+    expect(mocks.mockPlay).toHaveBeenCalled();
   });
 
   it('does not call speakVoice API on cache hit (same text twice)', async () => {
@@ -112,15 +109,14 @@ describe('useElevenLabsVoice', () => {
 
     await act(async () => { await result.current.speak(text); });
 
-    // Reset mocks but module-level cache still has the entry
     vi.clearAllMocks();
-    mocks.mockCreateAsync.mockResolvedValue({ sound: makeMockSound() });
+    mocks.mockCreateAudioPlayer.mockReturnValue(makeMockPlayer());
 
     await act(async () => { await result.current.speak(text); });
 
     // speakVoice should NOT be called again
     expect(mocks.mockSpeakVoice).not.toHaveBeenCalled();
-    expect(mocks.mockPlayAsync).toHaveBeenCalled();
+    expect(mocks.mockPlay).toHaveBeenCalled();
   });
 
   it('sets isSpeaking=false when playback finishes', async () => {
@@ -130,11 +126,10 @@ describe('useElevenLabsVoice', () => {
       await result.current.speak('Finished playback test unique lmno789');
     });
 
-    // Wait for isSpeaking to become true (React 18 async batching)
     await waitFor(() => expect(result.current.isSpeaking).toBe(true));
 
     act(() => {
-      onPlaybackStatusUpdate?.({ isLoaded: true, didJustFinish: true });
+      onPlaybackStatusUpdate?.({ didJustFinish: true });
     });
 
     expect(result.current.isSpeaking).toBe(false);
@@ -147,13 +142,12 @@ describe('useElevenLabsVoice', () => {
       await result.current.speak('Stop test unique text pqrst789');
     });
 
-    // Wait for isSpeaking to become true (React 18 async batching)
     await waitFor(() => expect(result.current.isSpeaking).toBe(true));
 
     act(() => { result.current.stop(); });
 
-    expect(mocks.mockStopAsync).toHaveBeenCalled();
-    expect(mocks.mockUnloadAsync).toHaveBeenCalled();
+    expect(mocks.mockPause).toHaveBeenCalled();
+    expect(mocks.mockRemove).toHaveBeenCalled();
     expect(result.current.isSpeaking).toBe(false);
   });
 
