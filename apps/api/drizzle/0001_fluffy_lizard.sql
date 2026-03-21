@@ -1,0 +1,1 @@
+ALTER TABLE "playbooks" ALTER COLUMN "course_id" DROP NOT NULL;

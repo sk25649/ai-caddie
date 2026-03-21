@@ -27,14 +27,7 @@ app.route('/courses', courseRoutes);
 app.route('/playbook', playbookRoutes);
 app.route('/rounds', roundRoutes);
 
-app.get('/health', async (c) => {
-  try {
-    await db.execute('SELECT 1');
-    return c.json({ status: 'ok', db: 'ok', timestamp: new Date().toISOString() });
-  } catch (err) {
-    return c.json({ status: 'ok', db: 'error', error: String(err), timestamp: new Date().toISOString() });
-  }
-});
+app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 const port = parseInt(process.env.PORT || '3000');
 
