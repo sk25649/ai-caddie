@@ -113,6 +113,9 @@ export default function DetailsScreen() {
   return (
     <ScrollView className="flex-1 bg-green-deep px-6" keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
       <View className="pt-6 pb-6">
+        <Pressable onPress={() => router.back()} className="py-2 mb-2 self-start">
+          <Text className="text-gold text-base">‹ Back</Text>
+        </Pressable>
         <Text className="text-cream-dim text-sm mb-1">
           {isCustomCourse ? customCourseName : course?.name} · {isCustomCourse ? customCourseTeeName : tee} Tees
         </Text>
@@ -243,8 +246,11 @@ export default function DetailsScreen() {
 
       {(generatePlaybook.isError || generateFromDescription.isError) && (
         <View className="bg-danger/12 border border-danger/20 rounded-xl p-4 mb-4">
-          <Text className="text-danger font-semibold">
-            Failed to generate playbook. Please try again.
+          <Text className="text-danger font-semibold mb-1">
+            Failed to generate playbook.
+          </Text>
+          <Text className="text-danger/80 text-sm">
+            {(generatePlaybook.error || generateFromDescription.error)?.message || 'Please try again.'}
           </Text>
         </View>
       )}

@@ -38,6 +38,9 @@ export default function TeeSelectScreen() {
   return (
     <ScrollView className="flex-1 bg-green-deep px-6">
       <View className="pt-14 pb-6">
+        <Pressable onPress={() => router.back()} className="py-2 mb-2 self-start">
+          <Text className="text-gold text-base">‹ Back</Text>
+        </Pressable>
         <Text className="text-cream-dim text-sm mb-2">{course.name}</Text>
         <Text className="text-2xl text-white" style={{ fontFamily: 'serif' }}>
           Choose Your Tees

@@ -42,6 +42,9 @@ export default function CourseSelectScreen() {
   return (
     <SafeAreaView className="flex-1 bg-green-deep">
       <View className="px-6 pb-4 border-b border-gold/20">
+        <Pressable onPress={() => router.back()} className="py-2 mb-1 self-start">
+          <Text className="text-gold text-base">‹ Back</Text>
+        </Pressable>
         <Text className="text-2xl text-white mb-4" style={{ fontFamily: 'serif' }}>
           Pick Your Course
         </Text>

@@ -90,6 +90,9 @@ export default function PlaybookScreen() {
     <ScrollView className="flex-1 bg-green-deep" contentInsetAdjustmentBehavior="automatic">
       {/* Header */}
       <View className="pt-6 pb-6 px-5 border-b-2 border-gold items-center">
+        <Pressable onPress={() => router.replace('/')} className="absolute left-5 top-6 py-2">
+          <Text className="text-gold text-base">⌂ Home</Text>
+        </Pressable>
         <Text className="text-xs tracking-[5px] uppercase text-gold font-semibold mb-2">
           Caddie Playbook
         </Text>
