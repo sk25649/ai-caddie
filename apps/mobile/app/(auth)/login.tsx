@@ -112,6 +112,13 @@ export default function LoginScreen() {
         </View>
       )}
 
+      <Pressable onPress={() => router.push('/demo')} className="mt-4 items-center py-3">
+        <Text className="text-cream-dim text-sm">
+          Just want to look around?{' '}
+          <Text className="text-gold font-semibold">View Demo</Text>
+        </Text>
+      </Pressable>
+
       <Pressable onPress={() => router.push('/(auth)/signup')} className="mt-6 items-center">
         <Text className="text-cream-dim text-base">
           Don't have an account?{' '}

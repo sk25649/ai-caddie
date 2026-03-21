@@ -77,6 +77,13 @@ export default function SignupScreen() {
 
       <Button title="Create Account" onPress={handleSignup} loading={loading} className="mt-2" />
 
+      <Pressable onPress={() => router.push('/demo')} className="mt-4 items-center py-3">
+        <Text className="text-cream-dim text-sm">
+          Want to see how it works?{' '}
+          <Text className="text-gold font-semibold">View Demo</Text>
+        </Text>
+      </Pressable>
+
       <Pressable onPress={() => router.back()} className="mt-6 items-center">
         <Text className="text-cream-dim text-base">
           Already have an account?{' '}
