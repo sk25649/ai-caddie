@@ -432,6 +432,27 @@ export async function getRounds(): Promise<RoundScore[]> {
   return api.get<RoundScore[]>('/rounds');
 }
 
+export interface RoundReview {
+  type: 'decision_review' | 'basic';
+  totalScore: number;
+  overPar?: number;
+  analysis?: {
+    pars: number;
+    bogeys: number;
+    doubles: number;
+    birdies: number;
+    parConversion: number;
+    worstHoles: Array<{ hole: number; score: number; par: number; diff: number }>;
+    bestHoles: Array<{ hole: number; score: number; par: number; diff: number }>;
+  };
+  lessons?: string[];
+  note?: string;
+}
+
+export async function getRoundReview(roundId: string): Promise<RoundReview> {
+  return api.get<RoundReview>(`/rounds/${roundId}/review`);
+}
+
 export async function updatePlaybookNote(playbookId: string, holeIndex: number, note: string): Promise<void> {
   await api.patch(`/playbook/${playbookId}/notes`, { holeIndex, note });
 }
