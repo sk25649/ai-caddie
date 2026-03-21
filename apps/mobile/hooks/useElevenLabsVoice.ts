@@ -47,7 +47,7 @@ export function useElevenLabsVoice(): UseElevenLabsVoiceReturn {
         const result = await speakVoice(text);
         const filePath = `${FileSystem.cacheDirectory}caddie_voice_${Date.now()}.mp3`;
         await FileSystem.writeAsStringAsync(filePath, result.audio, {
-          encoding: FileSystem.EncodingType.Base64,
+          encoding: 'base64' as FileSystem.EncodingType,
         });
         uri = filePath;
         audioCache.set(cacheKey, uri);
