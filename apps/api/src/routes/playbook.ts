@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 import { db } from '../db';
 import {
@@ -238,6 +239,191 @@ playbookRoutes.post('/generate', async (c) => {
 
   return c.json({ data: saved }, 201);
 });
+
+// POST /playbook/generate-stream — SSE streaming endpoint
+playbookRoutes.post('/generate-stream', async (c) => {
+  const userId = c.get('userId') as string;
+  const body = await c.req.json();
+  const parsed = generateSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 400);
+  }
+
+  const { courseId, teeName, roundDate, teeTime, scoringGoal } = parsed.data;
+
+  // Get profile first (needed for cache check)
+  let profile: typeof playerProfiles.$inferSelect | undefined;
+  try {
+    [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.userId, userId));
+  } catch (err) {
+    return c.json({ error: `Database error: ${String(err)}` }, 500);
+  }
+  if (!profile) {
+    return c.json({ error: 'Profile not found. Complete onboarding first.' }, 404);
+  }
+
+  // Check cache
+  let cached: typeof playbooks.$inferSelect | undefined;
+  try {
+    [cached] = await db.select().from(playbooks).where(
+      and(
+        eq(playbooks.profileId, profile.id),
+        eq(playbooks.courseId, courseId),
+        eq(playbooks.teeName, teeName),
+        eq(playbooks.roundDate, roundDate)
+      )
+    );
+  } catch (err) {
+    return c.json({ error: `Database error: ${String(err)}` }, 500);
+  }
+
+  if (cached) {
+    // Cache hit: return complete playbook via SSE
+    return streamSSE(c, async (stream) => {
+      await stream.writeSSE({ event: 'complete', data: JSON.stringify(cached) });
+    });
+  }
+
+  // Fetch clubs, course+holes, weather in parallel
+  const [clubsResult, courseResult, holesResult, forecast] = await Promise.all([
+    db.select().from(playerClubs).where(eq(playerClubs.profileId, profile.id)).orderBy(playerClubs.sortOrder),
+    db.select().from(courses).where(eq(courses.id, courseId)),
+    db.select().from(holes).where(eq(holes.courseId, courseId)).orderBy(holes.holeNumber),
+    fetchWeather(courseId, teeTime),
+  ]);
+
+  const course = courseResult[0];
+  if (!course) {
+    return c.json({ error: 'Course not found' }, 404);
+  }
+
+  const prompt = buildPlaybookPrompt(
+    { ...profile, clubs: clubsResult },
+    { ...course, holes: holesResult },
+    teeName,
+    forecast as { temp?: number; wind_speed?: number; wind_deg?: number; weather?: Array<{ description: string }> },
+    scoringGoal
+  );
+
+  // Set SSE headers
+  c.header('Cache-Control', 'no-cache');
+  c.header('X-Accel-Buffering', 'no');
+
+  return streamSSE(c, async (stream) => {
+    try {
+      // Stream Claude response, accumulate text
+      let fullText = '';
+      const claudeStream = anthropic.messages.stream({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        system: CADDIE_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      for await (const event of claudeStream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          fullText += event.delta.text;
+        }
+      }
+
+      // Parse the full response
+      const cleaned = fullText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const playbookData: PlaybookResponse = JSON.parse(cleaned);
+
+      // Merge DB data into lean holes
+      const mergedHoles = mergeDbDataIntoHoles(
+        playbookData.holes as unknown as Array<Record<string, unknown>>,
+        holesResult,
+        teeName
+      ) as unknown as HoleStrategy[];
+
+      // Emit meta
+      await stream.writeSSE({
+        event: 'meta',
+        data: JSON.stringify({
+          pre_round_talk: playbookData.pre_round_talk,
+          projected_score: playbookData.projected_score,
+          driver_holes: playbookData.driver_holes,
+          par_chance_holes: playbookData.par_chance_holes,
+        }),
+      });
+
+      // Emit each hole
+      for (const hole of mergedHoles) {
+        await stream.writeSSE({
+          event: 'hole',
+          data: JSON.stringify(hole),
+        });
+      }
+
+      // Save to DB
+      const [saved] = await db.insert(playbooks).values({
+        profileId: profile.id,
+        courseId,
+        teeName,
+        scoringGoal,
+        roundDate,
+        teeTime,
+        weatherConditions: forecast,
+        preRoundTalk: playbookData.pre_round_talk,
+        holeStrategies: mergedHoles,
+        projectedScore: playbookData.projected_score,
+        driverHoles: playbookData.driver_holes,
+        parChanceHoles: playbookData.par_chance_holes,
+      }).onConflictDoUpdate({
+        target: [playbooks.profileId, playbooks.courseId, playbooks.teeName, playbooks.roundDate],
+        set: {
+          weatherConditions: forecast,
+          preRoundTalk: playbookData.pre_round_talk,
+          holeStrategies: mergedHoles,
+          projectedScore: playbookData.projected_score,
+          driverHoles: playbookData.driver_holes,
+          parChanceHoles: playbookData.par_chance_holes,
+          generatedAt: new Date(),
+        },
+      }).returning();
+
+      // Emit done with playbook ID
+      await stream.writeSSE({
+        event: 'done',
+        data: JSON.stringify({ id: saved.id }),
+      });
+    } catch (err) {
+      console.error('[playbook-stream] generation failed:', err);
+      await stream.writeSSE({
+        event: 'error',
+        data: JSON.stringify({ error: err instanceof Error ? err.message : 'Generation failed' }),
+      });
+    }
+  });
+});
+
+// Helper: fetch weather for a course
+async function fetchWeather(courseId: string, teeTime: string): Promise<Record<string, unknown>> {
+  try {
+    const [course] = await db.select().from(courses).where(eq(courses.id, courseId));
+    if (!course?.latitude || !course?.longitude) return {};
+
+    const weatherRes = await fetch(
+      `https://api.openweathermap.org/data/3.0/onecall?` +
+        `lat=${course.latitude}&lon=${course.longitude}` +
+        `&exclude=minutely,alerts&units=imperial` +
+        `&appid=${process.env.OPENWEATHER_KEY}`
+    );
+
+    if (weatherRes.ok) {
+      const weather = await weatherRes.json();
+      const teeHour = parseInt(teeTime.split(':')[0]);
+      return weather.hourly?.find(
+        (h: { dt: number }) => new Date(h.dt * 1000).getHours() === teeHour
+      ) || weather.current || {};
+    }
+  } catch {
+    // Weather fetch failed — proceed without it
+  }
+  return {};
+}
 
 // GET /playbook/:id
 playbookRoutes.get('/:id', async (c) => {

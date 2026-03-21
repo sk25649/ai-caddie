@@ -11,12 +11,13 @@ const mockDb = vi.hoisted(() => ({
 }));
 
 const mockCreate = vi.hoisted(() => vi.fn());
+const mockStream = vi.hoisted(() => vi.fn());
 
 vi.mock('../db', () => ({ db: mockDb }));
 vi.mock('bcrypt', () => ({ default: { hash: vi.fn(), compare: vi.fn() } }));
 vi.mock('@anthropic-ai/sdk', () => ({
   default: vi.fn().mockImplementation(() => ({
-    messages: { create: mockCreate },
+    messages: { create: mockCreate, stream: mockStream },
   })),
 }));
 
@@ -242,5 +243,129 @@ describe('GET /playbook/:id', () => {
     const res = await authedGet('/not-a-valid-uuid');
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('Invalid playbook ID');
+  });
+});
+
+// ── Streaming endpoint ────────────────────────────────────────────────────
+
+function parseSSEEvents(text: string): Array<{ event: string; data: string }> {
+  return text.split('\n\n').filter(Boolean).map((block) => {
+    const lines = block.split('\n');
+    const event = lines.find((l) => l.startsWith('event:'))?.slice(7) || '';
+    const data = lines.find((l) => l.startsWith('data:'))?.slice(6) || '';
+    return { event, data };
+  });
+}
+
+async function authedStreamPost(body: unknown) {
+  const token = await makeToken(TEST_USER_ID);
+  return playbookRoutes.request('/generate-stream', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+function setupStreamHappyPath() {
+  // profile, cache miss, then Promise.all: [clubs, course, holes, fetchWeather→course]
+  mockSelect(mockDb, [{ ...mockProfile, clubs: [] }]); // 1. profile
+  mockSelect(mockDb, []);                               // 2. cache miss
+  mockSelect(mockDb, []);                               // 3. clubs (Promise.all[0])
+  mockSelect(mockDb, [mockCourse]);                     // 4. course (Promise.all[1])
+  mockSelect(mockDb, Array.from({ length: 18 }, (_, i) => ({ ...mockHole, holeNumber: i + 1 }))); // 5. holes (Promise.all[2])
+  mockSelect(mockDb, [mockCourse]);                     // 6. course (fetchWeather, Promise.all[3])
+}
+
+function makeMockClaudeStream(data: typeof mockPlaybookData) {
+  const text = JSON.stringify(data);
+  // Simulate an async iterable that yields text deltas
+  const events = [
+    { type: 'content_block_delta', delta: { type: 'text_delta', text } },
+  ];
+  return {
+    [Symbol.asyncIterator]: () => {
+      let i = 0;
+      return {
+        next: () => Promise.resolve(i < events.length ? { value: events[i++], done: false } : { value: undefined, done: true }),
+      };
+    },
+  };
+}
+
+describe('POST /playbook/generate-stream — cache hit', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    setupWeatherFetch();
+  });
+
+  it('returns complete event for cached playbook', async () => {
+    mockSelect(mockDb, [{ ...mockProfile }]); // profile
+    mockSelect(mockDb, [mockPlaybook]);        // cache hit
+
+    const res = await authedStreamPost(VALID_BODY);
+    expect(res.status).toBe(200);
+
+    const text = await res.text();
+    const events = parseSSEEvents(text);
+    expect(events[0].event).toBe('complete');
+    expect(JSON.parse(events[0].data).id).toBe(TEST_PLAYBOOK_ID);
+  });
+});
+
+describe('POST /playbook/generate-stream — fresh generation', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    setupWeatherFetch();
+  });
+
+  it('emits meta, hole events, and done', async () => {
+    setupStreamHappyPath();
+    mockStream.mockReturnValueOnce(makeMockClaudeStream(mockPlaybookData));
+    mockInsert(mockDb, [mockPlaybook]);
+
+    const res = await authedStreamPost(VALID_BODY);
+    expect(res.status).toBe(200);
+
+    const text = await res.text();
+    const events = parseSSEEvents(text);
+
+    // First event is meta
+    expect(events[0].event).toBe('meta');
+    const meta = JSON.parse(events[0].data);
+    expect(meta.pre_round_talk).toBe(mockPlaybookData.pre_round_talk);
+    expect(meta.projected_score).toBe(mockPlaybookData.projected_score);
+
+    // Next 18 events are holes
+    const holeEvents = events.filter((e) => e.event === 'hole');
+    expect(holeEvents.length).toBe(18);
+
+    // Last event is done
+    const doneEvent = events.find((e) => e.event === 'done');
+    expect(doneEvent).toBeDefined();
+    expect(JSON.parse(doneEvent!.data).id).toBe(TEST_PLAYBOOK_ID);
+  });
+
+  it('emits error event when Claude fails', async () => {
+    setupStreamHappyPath();
+    const failStream = {
+      [Symbol.asyncIterator]: () => ({
+        next: () => Promise.reject(new Error('Claude stream failed')),
+      }),
+    };
+    mockStream.mockReturnValueOnce(failStream);
+
+    const res = await authedStreamPost(VALID_BODY);
+    const text = await res.text();
+    const events = parseSSEEvents(text);
+
+    const errorEvent = events.find((e) => e.event === 'error');
+    expect(errorEvent).toBeDefined();
+    expect(JSON.parse(errorEvent!.data).error).toContain('Claude stream failed');
+  });
+
+  it('returns 404 when profile not found', async () => {
+    mockSelect(mockDb, []); // no profile
+    const res = await authedStreamPost(VALID_BODY);
+    expect(res.status).toBe(404);
   });
 });
