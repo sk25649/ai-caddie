@@ -26,9 +26,12 @@ interface RoundState {
   customCourseCity: string | null;
   customCourseState: string | null;
 
+  holesCount: 9 | 18;
+
   // Actions
   setCourse: (course: Course) => void;
   setTee: (tee: string) => void;
+  setHolesCount: (n: 9 | 18) => void;
   setRoundDetails: (date: string, time: string, goal: string) => void;
   setPlaybook: (playbook: Playbook) => void;
   setScore: (holeIndex: number, score: number | null) => void;
@@ -48,6 +51,7 @@ const initialState = {
   playbook: null,
   scores: Array(18).fill(null) as (number | null)[],
   currentHole: 0,
+  holesCount: 18 as 9 | 18,
   isCompetitionMode: false,
   holeNotes: Array(18).fill('') as string[],
   isCustomCourse: false,
@@ -63,6 +67,7 @@ export const useRoundStore = create<RoundState>((set) => ({
 
   setCourse: (course) => set({ selectedCourse: course }),
   setTee: (tee) => set({ selectedTee: tee }),
+  setHolesCount: (n) => set({ holesCount: n }),
   setRoundDetails: (date, time, goal) =>
     set({ roundDate: date, teeTime: time, scoringGoal: goal }),
   setPlaybook: (playbook) => set({ playbook }),

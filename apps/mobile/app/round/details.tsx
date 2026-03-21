@@ -45,6 +45,8 @@ export default function DetailsScreen() {
   const tee = useRoundStore((s) => s.selectedTee);
   const setRoundDetails = useRoundStore((s) => s.setRoundDetails);
   const setPlaybook = useRoundStore((s) => s.setPlaybook);
+  const holesCount = useRoundStore((s) => s.holesCount);
+  const setHolesCount = useRoundStore((s) => s.setHolesCount);
   const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
   const setCompetitionMode = useRoundStore((s) => s.setCompetitionMode);
   const isCustomCourse = useRoundStore((s) => s.isCustomCourse);
@@ -122,6 +124,29 @@ export default function DetailsScreen() {
         <Text className="text-2xl text-white" style={{ fontFamily: 'serif' }}>
           Round Details
         </Text>
+      </View>
+
+      {/* Holes */}
+      <Text className="text-xs tracking-[3px] uppercase text-gold font-bold mb-3">
+        Holes
+      </Text>
+      <View className="flex-row gap-2 mb-6">
+        {([9, 18] as const).map((n) => (
+          <Pressable
+            key={n}
+            onPress={() => { Haptics.selectionAsync(); setHolesCount(n); }}
+            className={`flex-1 py-3.5 rounded-xl border-2 items-center ${
+              holesCount === n ? 'border-gold bg-gold/20' : 'border-gold/15 bg-black/30'
+            }`}
+          >
+            <Text className={`text-base font-semibold ${holesCount === n ? 'text-gold' : 'text-cream-dim'}`}>
+              {n} Holes
+            </Text>
+            <Text className={`text-xs mt-0.5 ${holesCount === n ? 'text-gold/70' : 'text-cream-dim/50'}`}>
+              {n === 9 ? 'Front 9' : 'Full Round'}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       {/* Date */}

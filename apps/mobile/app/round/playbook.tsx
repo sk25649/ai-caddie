@@ -21,6 +21,7 @@ export default function PlaybookScreen() {
   const currentHole = useRoundStore((s) => s.currentHole);
   const setScore = useRoundStore((s) => s.setScore);
   const setCurrentHole = useRoundStore((s) => s.setCurrentHole);
+  const holesCount = useRoundStore((s) => s.holesCount);
   const isCompetitionMode = useRoundStore((s) => s.isCompetitionMode);
   const holeNotes = useRoundStore((s) => s.holeNotes);
   const setHoleNote = useRoundStore((s) => s.setHoleNote);
@@ -57,12 +58,13 @@ export default function PlaybookScreen() {
 
   if (!playbook || !course) return null;
 
-  const holes = playbook.holeStrategies;
+  const allHoles = playbook.holeStrategies;
+  const holes = allHoles.slice(0, holesCount);
   const teeInfo = (course.tees as TeeInfo[]).find((t) => t.name === playbook.teeName);
   const totalYds = teeInfo?.totalYardage || 0;
   const totalPar = holes.reduce((s, h) => s + h.par, 0);
   const parChances = holes.filter((h) => h.is_par_chance).length;
-  const holesPlayed = scores.filter((s) => s !== null).length;
+  const holesPlayed = scores.slice(0, holesCount).filter((s) => s !== null).length;
 
   const handleFinishRound = () => {
     router.push('/post-round/summary');
@@ -100,7 +102,7 @@ export default function PlaybookScreen() {
           {course.name}
         </Text>
         <Text className="text-[15px] text-cream-dim mt-1.5">
-          {playbook.teeName} Tees · {totalYds} yds · Par {totalPar}
+          {playbook.teeName} Tees · {holesCount} holes · Par {totalPar}
         </Text>
       </View>
 
@@ -178,7 +180,7 @@ export default function PlaybookScreen() {
           hole={holes[currentHole]}
           score={scores[currentHole]}
           onScore={(score) => setScore(currentHole, score)}
-          onNext={() => setCurrentHole(Math.min(currentHole + 1, 17))}
+          onNext={() => setCurrentHole(Math.min(currentHole + 1, holesCount - 1))}
           isCompetitionMode={isCompetitionMode}
           note={holeNotes[currentHole]}
           onNote={(n) => handleNoteChange(currentHole, n)}
