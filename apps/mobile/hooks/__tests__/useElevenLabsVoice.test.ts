@@ -12,8 +12,9 @@ const mocks = vi.hoisted(() => {
   const mockAddListener = vi.fn();
   const mockCreateAudioPlayer = vi.fn();
   const mockSetAudioMode = vi.fn().mockResolvedValue(undefined);
-  const mockWriteAsStringAsync = vi.fn().mockResolvedValue(undefined);
-  const mockSpeakVoice = vi.fn().mockResolvedValue({ audio: 'base64audiodata==', format: 'mp3' });
+  const mockFileCreate = vi.fn();
+  const mockFileWrite = vi.fn();
+  const mockSpeakVoice = vi.fn().mockResolvedValue({ audio: 'aGVsbG8=', format: 'mp3' });
 
   return {
     mockPlay,
@@ -22,7 +23,8 @@ const mocks = vi.hoisted(() => {
     mockAddListener,
     mockCreateAudioPlayer,
     mockSetAudioMode,
-    mockWriteAsStringAsync,
+    mockFileCreate,
+    mockFileWrite,
     mockSpeakVoice,
   };
 });
@@ -33,9 +35,13 @@ vi.mock('expo-audio', () => ({
 }));
 
 vi.mock('expo-file-system', () => ({
-  cacheDirectory: '/tmp/cache/',
-  writeAsStringAsync: mocks.mockWriteAsStringAsync,
-  EncodingType: { Base64: 'base64' },
+  File: class MockFile {
+    uri: string;
+    constructor(...parts: string[]) { this.uri = parts.join('/'); }
+    create = mocks.mockFileCreate;
+    write = mocks.mockFileWrite;
+  },
+  Paths: { cache: '/tmp/cache' },
 }));
 
 vi.mock('../../lib/api', () => ({
@@ -67,8 +73,7 @@ describe('useElevenLabsVoice', () => {
     vi.clearAllMocks();
     onPlaybackStatusUpdate = null;
     mocks.mockCreateAudioPlayer.mockReturnValue(makeMockPlayer());
-    mocks.mockSpeakVoice.mockResolvedValue({ audio: 'base64audiodata==', format: 'mp3' });
-    mocks.mockWriteAsStringAsync.mockResolvedValue(undefined);
+    mocks.mockSpeakVoice.mockResolvedValue({ audio: 'aGVsbG8=', format: 'mp3' });
   });
 
   it('starts with isSpeaking=false and isLoading=false', () => {
@@ -96,11 +101,8 @@ describe('useElevenLabsVoice', () => {
     });
 
     expect(mocks.mockSpeakVoice).toHaveBeenCalledWith('Unique apicall text xyz987unique');
-    expect(mocks.mockWriteAsStringAsync).toHaveBeenCalledWith(
-      expect.stringContaining('.mp3'),
-      'base64audiodata==',
-      { encoding: 'base64' }
-    );
+    expect(mocks.mockFileCreate).toHaveBeenCalled();
+    expect(mocks.mockFileWrite).toHaveBeenCalled();
     expect(mocks.mockPlay).toHaveBeenCalled();
   });
 

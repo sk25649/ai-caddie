@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioPlayer } from 'expo-audio';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { speakVoice } from '../lib/api';
 
 // Module-level cache: text snippet → local file URI
@@ -14,6 +14,15 @@ interface UseElevenLabsVoiceReturn {
   stop: () => void;
   isSpeaking: boolean;
   isLoading: boolean;
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
 }
 
 export function useElevenLabsVoice(): UseElevenLabsVoiceReturn {
@@ -45,11 +54,10 @@ export function useElevenLabsVoice(): UseElevenLabsVoiceReturn {
 
       if (!uri) {
         const result = await speakVoice(text);
-        const filePath = `${FileSystem.cacheDirectory}caddie_voice_${Date.now()}.mp3`;
-        await FileSystem.writeAsStringAsync(filePath, result.audio, {
-          encoding: 'base64' as FileSystem.EncodingType,
-        });
-        uri = filePath;
+        const file = new File(Paths.cache, `caddie_voice_${Date.now()}.mp3`);
+        file.create({ overwrite: true });
+        file.write(base64ToBytes(result.audio));
+        uri = file.uri;
         audioCache.set(cacheKey, uri);
       }
 
