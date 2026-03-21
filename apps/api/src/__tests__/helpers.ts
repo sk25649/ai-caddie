@@ -159,15 +159,13 @@ export const mockHole = {
   holeIntel: { shape: 'straight', fairwayWidth: 'medium', hazards: [] },
 };
 
+// Lean format: Claude no longer returns hole_number, yardage, par, miss_short
 export const mockPlaybookData = {
   pre_round_talk: 'Stay patient, bogey is your par.',
   projected_score: 89,
   driver_holes: [9, 18],
   par_chance_holes: [1, 4, 7],
   holes: Array.from({ length: 18 }, (_, i) => ({
-    hole_number: i + 1,
-    yardage: 400,
-    par: 4,
     tee_club: '3-Hybrid',
     aim_point: 'left edge of right fairway bunker',
     carry_target: 210,
@@ -179,7 +177,6 @@ export const mockPlaybookData = {
     terrain_note: '',
     miss_left: 'Rough left, pitch out.',
     miss_right: 'Rough right, pitch out.',
-    miss_short: 'Advance to wedge distance.',
     danger: 'OB left.',
     target: 'Bogey',
     is_par_chance: i < 3,

@@ -10,6 +10,7 @@ Rules:
 - Fairway finder clubs → prefer off tight tees.
 - aim_point: a specific visual landmark (e.g. "left edge of right bunker"). Never vague.
 - Be terse. Every field has a hard word limit — stay under it.
+- Do NOT include hole_number, yardage, or par in the holes array — those are already known. Only include strategy fields.
 
 Return ONLY valid JSON (no markdown, no backticks):
 {
@@ -19,9 +20,6 @@ Return ONLY valid JSON (no markdown, no backticks):
   "par_chance_holes": [hole numbers],
   "holes": [
     {
-      "hole_number": 1,
-      "yardage": 309,
-      "par": 4,
       "tee_club": "3-Hybrid",
       "aim_point": "≤8 words — specific landmark",
       "carry_target": 160,
@@ -32,7 +30,6 @@ Return ONLY valid JSON (no markdown, no backticks):
       "terrain_note": "≤10 words — hidden drop or valley. Empty string if flat.",
       "miss_left": "≤8 words — one recovery action",
       "miss_right": "≤8 words — one recovery action",
-      "miss_short": "≤8 words — one recovery action",
       "danger": "≤10 words — the one thing to avoid",
       "target": "Par" or "Bogey",
       "is_par_chance": boolean
@@ -208,6 +205,28 @@ ${notesSection}
 Generate a playbook for each hole described. If the caddie described all 18 holes, produce 18 strategies. If fewer, produce strategies for the holes described and use your knowledge of the course to fill gaps. The caddie may have described holes informally — extract par, yardage, and hazards from context. Ask for nothing. Work with what you have.
 
 Generate a personalized playbook for this player on this course today.`;
+}
+
+/**
+ * Merges DB hole data (hole_number, yardage, par) into Claude's lean output.
+ * Claude returns holes indexed by position — index 0 = hole 1.
+ */
+export function mergeDbDataIntoHoles(
+  leanHoles: Array<Record<string, unknown>>,
+  dbHoles: Array<{ holeNumber: number; par: number; yardages: unknown; handicapIndex: number | null }>,
+  teeName: string
+): Array<Record<string, unknown>> {
+  const sorted = [...dbHoles].sort((a, b) => a.holeNumber - b.holeNumber);
+  return leanHoles.map((lean, i) => {
+    const db = sorted[i];
+    if (!db) return lean;
+    return {
+      hole_number: db.holeNumber,
+      yardage: (db.yardages as Record<string, number>)[teeName],
+      par: db.par,
+      ...lean,
+    };
+  });
 }
 
 function degreesToCompass(deg: number): string {

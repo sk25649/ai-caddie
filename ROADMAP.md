@@ -1,6 +1,6 @@
 # Roadmap — AI Caddie
 
-**Last updated:** 2026-03-22
+**Last updated:** 2026-03-21
 
 ## Progress
 
@@ -25,6 +25,13 @@
 - [x] Chunk 1: Prompt schema — add aim_point, carry_target, play_bullets, terrain_note
 - [x] Chunk 2: HoleCard visual redesign — scan-first layout
 - [x] Chunk 3: Voice readout — one-tap audio caddie
+
+### Feature: Progressive Playbook (sub-10s perceived generation) — In Progress
+- [x] Chunk 1: Lean output format — stop generating what we already have
+- [ ] Chunk 2: SSE streaming endpoint with Claude streaming API
+- [ ] Chunk 3: Streaming JSON parser — emit holes as they complete
+- [ ] Chunk 4: Parallel front-9 / back-9 Claude calls
+- [ ] Chunk 5: Mobile streaming client + progressive playbook UI
 
 ---
 
@@ -927,3 +934,304 @@ Every line of the yardage book is specific to THIS player's bag, THIS player's m
 - `expo-av` compatibility with Expo Go 54 — should work but verify on physical device.
 - Base64 audio file size: ~50-100KB per hole. Writing to FileSystem.cacheDirectory is fast.
 - If ElevenLabs is down or key is missing, voice button should fail silently (show an error toast or just go back to idle) — never crash the playbook screen.
+
+---
+
+## Feature: Progressive Playbook (sub-10s perceived generation)
+
+**Created:** 2026-03-21
+**Status:** In Progress
+**Estimated total effort:** ~1 hour
+
+**Goal:** Reduce perceived playbook generation time from 66 seconds to under 10 seconds by streaming holes progressively to the client.
+
+**Problem analysis:**
+~64 of 66 seconds is Claude generating ~3600 output tokens for 18 holes. DB queries and weather are negligible (~300ms). The user stares at a spinner for over a minute. The bottleneck is output token count at ~55 tokens/second.
+
+**Strategy (three layered optimizations):**
+1. **Lean output** — stop asking Claude for data we already have in the DB (par, yardage, hole_number). Saves ~430 tokens = ~8 seconds.
+2. **Streaming** — use Claude streaming API + SSE to emit holes as they're generated. First hole appears in ~3-5 seconds.
+3. **Parallel split** — fire front-9 and back-9 as two parallel Claude calls. Halves total generation time.
+
+**Expected results:**
+| Metric | Before | After |
+|--------|--------|-------|
+| Time to first hole | 66s | ~3-5s |
+| Full playbook ready | 66s | ~25-30s |
+| User perception | Staring at spinner | Scrolling through holes within 5s |
+
+**In scope:**
+- SSE streaming endpoint on the API
+- Streaming JSON parser to extract holes from partial Claude output
+- Parallel front-9/back-9 Claude calls
+- Mobile EventSource client with progressive rendering
+- Lean prompt that skips DB-known fields
+
+**Out of scope:**
+- WebSocket transport (SSE is simpler and sufficient)
+- Pre-generating course strategy templates at seed time
+- Switching to a faster/cheaper model (stays on claude-sonnet-4-6)
+- Changes to the custom course (generate-from-description) endpoint — can be added later
+
+**Dependencies:** Hono SSE support (built-in via `hono/streaming`), Claude streaming API (Anthropic SDK supports it)
+
+---
+
+### Chunk 1: Lean output format — stop generating what we already have
+**Estimated effort:** ~10 min
+**Files to modify:**
+- `apps/api/src/lib/prompts.ts`
+- `apps/api/src/routes/playbook.ts`
+
+**Depends on:** none
+
+**What to do:**
+1. In `prompts.ts`, update `CADDIE_SYSTEM_PROMPT` JSON schema:
+   - Remove `hole_number`, `yardage`, `par` from the `holes` array output (these are already in the DB)
+   - Remove `miss_short` (rarely actionable, saves tokens)
+   - Change the holes output to be an array of objects **indexed by position** (hole 1 = index 0)
+   - Keep: `tee_club`, `aim_point`, `carry_target`, `play_bullets`, `terrain_note`, `miss_left`, `miss_right`, `danger`, `target`, `is_par_chance`
+
+2. In `playbook.ts` (`callClaudeWithRetry` or post-processing), after parsing Claude's response:
+   - Merge `hole_number`, `yardage`, `par` back from the DB course/holes data
+   - Map Claude's lean output array → full `HoleStrategy[]` by zipping with DB hole data
+   - This keeps the saved playbook format unchanged (backward compatible)
+
+3. Update `buildPlaybookPrompt` in prompts.ts:
+   - In the hole-by-hole data section, still send full hole intel to Claude (it needs it for strategy)
+   - Only the OUTPUT format is leaner — INPUT stays rich
+
+**Acceptance criteria:**
+- [ ] Claude output is ~30-40% fewer tokens (verify via `response.usage.output_tokens` log)
+- [ ] Saved playbook in DB has identical shape to before (hole_number, yardage, par present)
+- [ ] Playbook generation time drops from ~66s to ~55s
+- [ ] All existing mobile UI renders correctly with new playbooks
+- [ ] `npm test` passes
+
+**Key decisions:**
+- Keep the saved playbook format identical — this is a server-side optimization invisible to the client
+- Index holes by position (array index = hole number - 1) rather than requiring Claude to echo hole numbers
+
+---
+
+### Chunk 2: SSE streaming endpoint with Claude streaming API
+**Estimated effort:** ~20 min
+**Files to modify:**
+- `apps/api/src/routes/playbook.ts` — new `POST /playbook/generate-stream` endpoint
+- `apps/api/package.json` — may need `eventsource-parser` or similar (check if needed)
+
+**Depends on:** Chunk 1
+
+**What to do:**
+1. Add a new route `POST /playbook/generate-stream` that:
+   - Validates input identically to `/generate`
+   - Runs the same profile/cache/clubs/course/weather fetching (parallelize these with `Promise.all`)
+   - If cache hit: emit a single `complete` SSE event with the full playbook and close
+   - If cache miss: call Claude with streaming enabled
+
+2. Use Hono's streaming helper (`import { streamSSE } from 'hono/streaming'`):
+   ```
+   return streamSSE(c, async (stream) => {
+     // emit events via stream.writeSSE({ data: JSON.stringify(...), event: 'hole' })
+   })
+   ```
+
+3. Call Claude with `stream: true`:
+   ```
+   const response = await anthropic.messages.stream({
+     model: 'claude-sonnet-4-6',
+     max_tokens: 8000,
+     system: CADDIE_SYSTEM_PROMPT,
+     messages: [{ role: 'user', content: prompt }],
+   });
+   ```
+
+4. Accumulate streamed text tokens. After the stream completes:
+   - Parse the full JSON response
+   - Merge DB data (hole_number, yardage, par) into each hole
+   - Emit SSE events: one `meta` event (pre_round_talk, projected_score, driver_holes, par_chance_holes), then one `hole` event per hole, then `done`
+   - Save the complete playbook to DB (same upsert logic)
+
+5. Keep the existing `/generate` endpoint unchanged (used for cache hits and backward compat)
+
+**Acceptance criteria:**
+- [ ] `POST /playbook/generate-stream` returns `Content-Type: text/event-stream`
+- [ ] Cache hits return a single `complete` event immediately
+- [ ] Fresh generation emits `meta`, then 18 `hole` events, then `done`
+- [ ] Complete playbook is saved to DB after stream finishes
+- [ ] Existing `/generate` endpoint still works unchanged
+- [ ] `curl` test: `curl -N -X POST .../playbook/generate-stream` shows SSE events arriving progressively
+
+**Key decisions:**
+- Parse the full JSON after stream completes rather than partial parsing (simpler, still achieves streaming UX via the next chunk)
+- SSE event types: `meta` | `hole` | `done` | `complete` (cache hit) | `error`
+
+---
+
+### Chunk 3: Streaming JSON parser — emit holes as they complete
+**Estimated effort:** ~15 min
+**Files to modify:**
+- `apps/api/src/lib/stream-parser.ts` (new)
+- `apps/api/src/routes/playbook.ts` — integrate parser into generate-stream
+
+**Depends on:** Chunk 2
+
+**What to do:**
+1. Create `apps/api/src/lib/stream-parser.ts` with a `StreamingHoleParser` class:
+   - Accepts text deltas from Claude's streaming response
+   - Accumulates text into a buffer
+   - Extracts the `pre_round_talk`, `projected_score`, `driver_holes`, `par_chance_holes` once they appear (before the `holes` array starts)
+   - Tracks brace depth to detect complete hole objects within the `"holes":[...]` array
+   - Yields each complete hole object as soon as its closing `}` is detected
+   - Uses a simple state machine: BEFORE_HOLES → IN_ARRAY → IN_HOLE_OBJECT → (emit) → IN_ARRAY
+
+2. Key parser logic:
+   ```
+   onDelta(text):
+     buffer += text
+     // Try to extract meta fields (pre_round_talk etc.) from buffer prefix
+     // If in holes array, track { depth and extract complete objects
+     // For each complete hole object found, emit it
+   ```
+
+3. Update the `generate-stream` endpoint to:
+   - Feed each streaming text delta to the parser
+   - When parser emits meta → `stream.writeSSE({ event: 'meta', data: ... })`
+   - When parser emits a hole → merge DB data → `stream.writeSSE({ event: 'hole', data: ... })`
+   - On stream end → `stream.writeSSE({ event: 'done', data: ... })` with the playbook ID
+
+4. This means holes arrive at the client **as Claude generates them** — roughly one hole every ~2-3 seconds
+
+**Acceptance criteria:**
+- [ ] First `meta` SSE event arrives within ~3 seconds of request
+- [ ] First `hole` SSE event arrives within ~5-6 seconds
+- [ ] All 18 holes arrive as individual events before `done`
+- [ ] Holes arrive in order (hole 1 first, hole 18 last)
+- [ ] Parser handles edge cases: Claude wraps in code fences, trailing commas, whitespace variations
+- [ ] Unit tests for StreamingHoleParser with sample Claude output
+
+**Key decisions:**
+- Brace-depth tracking is more robust than regex for extracting JSON objects
+- Emit meta fields as soon as they're parseable (they appear before the holes array in the JSON)
+- Don't try to parse individual fields within a hole — wait for the complete hole object's closing `}`
+
+---
+
+### Chunk 4: Parallel front-9 / back-9 Claude calls
+**Estimated effort:** ~15 min
+**Files to modify:**
+- `apps/api/src/lib/prompts.ts` — new `buildPlaybookPromptForRange()` function
+- `apps/api/src/routes/playbook.ts` — update generate-stream to fire 2 parallel calls
+
+**Depends on:** Chunk 3
+
+**What to do:**
+1. In `prompts.ts`, add `buildPlaybookPromptForRange()`:
+   - Same as `buildPlaybookPrompt` but accepts a `holeRange: [start, end]` parameter
+   - Only includes holes in that range in the HOLE-BY-HOLE DATA section
+   - For front-9 call: includes `pre_round_talk`, `projected_score`, `driver_holes`, `par_chance_holes` in the expected output
+   - For back-9 call: output is ONLY the holes array (no meta fields — saves tokens)
+
+2. In the `generate-stream` endpoint:
+   - Fire two parallel Claude streaming calls:
+     - Call A: front 9 (holes 1-9) + meta fields — `max_tokens: 5000`
+     - Call B: back 9 (holes 10-18) — `max_tokens: 4000`
+   - Each call gets its own `StreamingHoleParser`
+   - Emit holes from Call A first (they start with hole 1)
+   - Interleave holes from Call B as they arrive
+   - Emit `meta` from Call A as soon as available
+
+3. After both calls complete:
+   - Merge all 18 holes in order
+   - Save the complete playbook to DB
+
+4. Error handling:
+   - If either call fails, retry that call once (not both)
+   - If both fail, emit an `error` SSE event
+
+**Acceptance criteria:**
+- [ ] Two Claude API calls fire in parallel (verify via logs with timestamps)
+- [ ] Total generation time drops from ~55s to ~28-30s
+- [ ] First hole still arrives in ~3-5 seconds
+- [ ] All 18 holes present and in correct order in saved playbook
+- [ ] Meta fields (pre_round_talk, projected_score) arrive from Call A only
+- [ ] If one call fails, the other still completes and the failed one retries
+
+**Key decisions:**
+- Front-9 call carries the meta fields (pre_round_talk, etc.) since it processes first
+- Back-9 call only generates holes — smaller prompt, faster completion
+- Use separate system prompts for each call to minimize confusion
+- Holes from both calls are merged by hole_number, not by arrival order
+
+---
+
+### Chunk 5: Mobile streaming client + progressive playbook UI
+**Estimated effort:** ~20 min
+**Files to modify:**
+- `apps/mobile/lib/api.ts` — new `generatePlaybookStream()` function
+- `apps/mobile/hooks/usePlaybook.ts` — new `useGeneratePlaybookStream` hook
+- `apps/mobile/app/round/details.tsx` — use streaming generation
+- `apps/mobile/app/round/playbook.tsx` — handle progressive state
+- `apps/mobile/components/playbook/HoleSelector.tsx` — loaded vs loading states
+- `apps/mobile/components/playbook/HoleCard.tsx` — loading placeholder
+
+**Depends on:** Chunk 2 (streaming endpoint must exist; chunks 3-4 are optional enhancements)
+
+**What to do:**
+1. In `api.ts`, add `generatePlaybookStream()`:
+   - Makes a `fetch` call to `/playbook/generate-stream` with appropriate headers
+   - Reads the response body as a `ReadableStream`
+   - Parses SSE events from the text stream (split on `\n\n`, parse `event:` and `data:` lines)
+   - Calls provided callbacks: `onMeta(meta)`, `onHole(hole)`, `onDone(playbookId)`, `onError(err)`
+
+2. In `usePlaybook.ts`, add `useGeneratePlaybookStream()` hook:
+   - Manages state: `{ status, meta, holes[], playbookId, error }`
+   - `status`: `'idle' | 'connecting' | 'streaming' | 'done' | 'error'`
+   - As `onHole` fires, appends to `holes[]` — triggers re-render
+   - On `onDone`, fetches the full playbook from `/playbook/:id` to get the cached version with DB id
+   - Falls back to regular `/generate` if stream fails
+
+3. In `details.tsx`:
+   - Replace `useGeneratePlaybook` mutation with `useGeneratePlaybookStream`
+   - On generate: start streaming, navigate to playbook screen immediately
+   - Pass streaming state via roundStore or navigation params
+
+4. In `playbook.tsx`:
+   - Accept partial playbook state (holes arriving incrementally)
+   - Show holes as they arrive — `holes[currentHole]` renders if available
+   - Show "Analyzing hole X..." placeholder for holes not yet received
+
+5. In `HoleSelector.tsx`:
+   - Loaded holes: normal appearance
+   - Unloaded holes: dimmed/pulsing appearance, not tappable
+   - Auto-select first available hole
+
+6. In `HoleCard.tsx`:
+   - If hole data not yet available, show a loading placeholder card
+   - Subtle pulse animation on the card border while loading
+
+**Acceptance criteria:**
+- [ ] User sees the playbook screen within 1-2 seconds of tapping "Generate"
+- [ ] Pre-round talk appears within ~3-5 seconds
+- [ ] First hole card renders within ~5-6 seconds
+- [ ] Subsequent holes appear progressively (~2-3 seconds apart)
+- [ ] HoleSelector visually distinguishes loaded vs loading holes
+- [ ] Tapping a not-yet-loaded hole shows a loading placeholder
+- [ ] After all holes arrive, playbook behaves identically to before
+- [ ] Cache hits still work instantly (no streaming needed)
+- [ ] Network errors show a retry option, not a crash
+
+**Key decisions:**
+- Navigate to the playbook screen immediately (don't wait for first hole) — show a "Your caddie is studying the course..." state
+- Use fetch ReadableStream rather than EventSource polyfill — more reliable in React Native
+- Store streaming state in roundStore so it persists across the details→playbook navigation
+- After streaming completes, replace streaming state with the full DB playbook (for consistency with cache/notes features)
+
+---
+
+**Risks & Unknowns:**
+- **Streaming JSON parsing reliability**: Claude occasionally includes trailing commas or wraps output in markdown fences. The parser must handle these gracefully. Mitigation: robust fence-stripping and lenient JSON parsing in the StreamingHoleParser.
+- **React Native ReadableStream support**: Expo/RN supports `ReadableStream` in newer versions but behavior varies. May need a polyfill or fallback to chunked text reading. Mitigation: test on physical device early (Chunk 5), fall back to non-streaming if needed.
+- **Parallel call cost**: Two Claude calls = 2x API cost (input tokens duplicated). For a ~3KB prompt, this is ~$0.01 extra per generation. Acceptable trade-off for halving generation time.
+- **Hono SSE on Railway**: Railway's proxy may buffer SSE events. Mitigation: set `Cache-Control: no-cache` and `X-Accel-Buffering: no` headers. Test on deployed instance.
+- **Race conditions**: Parallel calls may complete out of order. The parser must handle holes arriving from Call B before Call A is done. Mitigation: buffer and emit in hole_number order.

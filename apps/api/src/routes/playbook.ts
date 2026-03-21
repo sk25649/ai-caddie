@@ -11,7 +11,7 @@ import {
 import type { HoleStrategy } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
-import { CADDIE_SYSTEM_PROMPT, buildPlaybookPrompt, buildCustomCoursePrompt } from '../lib/prompts';
+import { CADDIE_SYSTEM_PROMPT, buildPlaybookPrompt, buildCustomCoursePrompt, mergeDbDataIntoHoles } from '../lib/prompts';
 import { authMiddleware } from './auth';
 import type { AppEnv } from '../lib/types';
 
@@ -187,6 +187,13 @@ playbookRoutes.post('/generate', async (c) => {
     return c.json({ error: `Claude error: ${msg}` }, 502);
   }
 
+  // Merge DB data (hole_number, yardage, par) into Claude's lean output
+  const mergedHoles = mergeDbDataIntoHoles(
+    playbookData.holes as unknown as Array<Record<string, unknown>>,
+    courseHoles,
+    teeName
+  ) as unknown as HoleStrategy[];
+
   // Cache in DB
   let saved: typeof playbooks.$inferSelect;
   try {
@@ -201,7 +208,7 @@ playbookRoutes.post('/generate', async (c) => {
         teeTime,
         weatherConditions: forecast,
         preRoundTalk: playbookData.pre_round_talk,
-        holeStrategies: playbookData.holes,
+        holeStrategies: mergedHoles,
         projectedScore: playbookData.projected_score,
         driverHoles: playbookData.driver_holes,
         parChanceHoles: playbookData.par_chance_holes,
@@ -216,7 +223,7 @@ playbookRoutes.post('/generate', async (c) => {
         set: {
           weatherConditions: forecast,
           preRoundTalk: playbookData.pre_round_talk,
-          holeStrategies: playbookData.holes,
+          holeStrategies: mergedHoles,
           projectedScore: playbookData.projected_score,
           driverHoles: playbookData.driver_holes,
           parChanceHoles: playbookData.par_chance_holes,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPlaybookPrompt, buildCustomCoursePrompt, CADDIE_SYSTEM_PROMPT } from '../lib/prompts';
+import { buildPlaybookPrompt, buildCustomCoursePrompt, CADDIE_SYSTEM_PROMPT, mergeDbDataIntoHoles } from '../lib/prompts';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -379,5 +379,108 @@ describe('buildCustomCoursePrompt', () => {
   it('includes instruction to work with incomplete hole data', () => {
     const result = buildCustomCoursePrompt(baseProfile, 'Riviera CC', 'Blue', baseWeather, 'Break 90', description);
     expect(result).toContain('Work with what you have');
+  });
+});
+
+// ── Lean output schema ───────────────────────────────────────────────────────
+
+describe('CADDIE_SYSTEM_PROMPT — lean output (no redundant fields)', () => {
+  const schemaSection = CADDIE_SYSTEM_PROMPT.slice(
+    CADDIE_SYSTEM_PROMPT.indexOf('Return ONLY valid JSON')
+  );
+
+  it('does not include hole_number in output schema', () => {
+    expect(schemaSection).not.toContain('"hole_number"');
+  });
+
+  it('does not include yardage in output schema', () => {
+    expect(schemaSection).not.toContain('"yardage"');
+  });
+
+  it('does not include par in output schema', () => {
+    expect(schemaSection).not.toContain('"par"');
+  });
+
+  it('does not include miss_short in output schema', () => {
+    expect(schemaSection).not.toContain('"miss_short"');
+  });
+
+  it('instructs Claude not to include hole_number, yardage, or par', () => {
+    expect(CADDIE_SYSTEM_PROMPT).toContain('Do NOT include hole_number, yardage, or par');
+  });
+});
+
+// ── mergeDbDataIntoHoles ─────────────────────────────────────────────────────
+
+describe('mergeDbDataIntoHoles', () => {
+  const dbHoles = [
+    { holeNumber: 1, par: 4, yardages: { White: 350, Blue: 380 }, handicapIndex: 5 },
+    { holeNumber: 2, par: 3, yardages: { White: 165, Blue: 185 }, handicapIndex: 11 },
+    { holeNumber: 3, par: 5, yardages: { White: 510, Blue: 545 }, handicapIndex: 1 },
+  ];
+
+  it('merges hole_number, yardage, par from DB into lean Claude output', () => {
+    const leanHoles = [
+      { tee_club: 'Driver', aim_point: 'center fairway', is_par_chance: true },
+      { tee_club: '7-Iron', aim_point: 'middle of green', is_par_chance: false },
+      { tee_club: '3-Wood', aim_point: 'left center', is_par_chance: true },
+    ];
+
+    const result = mergeDbDataIntoHoles(leanHoles, dbHoles, 'White');
+
+    expect(result[0]).toMatchObject({ hole_number: 1, yardage: 350, par: 4, tee_club: 'Driver' });
+    expect(result[1]).toMatchObject({ hole_number: 2, yardage: 165, par: 3, tee_club: '7-Iron' });
+    expect(result[2]).toMatchObject({ hole_number: 3, yardage: 510, par: 5, tee_club: '3-Wood' });
+  });
+
+  it('uses correct tee yardage', () => {
+    const leanHoles = [{ tee_club: 'Driver' }];
+    const result = mergeDbDataIntoHoles(leanHoles, [dbHoles[0]], 'Blue');
+    expect(result[0]).toMatchObject({ yardage: 380 });
+  });
+
+  it('handles unsorted DB holes by sorting them', () => {
+    const unsorted = [dbHoles[2], dbHoles[0], dbHoles[1]];
+    const leanHoles = [
+      { tee_club: 'Driver' },
+      { tee_club: '7-Iron' },
+      { tee_club: '3-Wood' },
+    ];
+
+    const result = mergeDbDataIntoHoles(leanHoles, unsorted, 'White');
+    expect(result[0]).toMatchObject({ hole_number: 1, tee_club: 'Driver' });
+    expect(result[1]).toMatchObject({ hole_number: 2, tee_club: '7-Iron' });
+    expect(result[2]).toMatchObject({ hole_number: 3, tee_club: '3-Wood' });
+  });
+
+  it('preserves all Claude strategy fields', () => {
+    const leanHoles = [{
+      tee_club: 'Driver',
+      aim_point: 'left bunker edge',
+      carry_target: 220,
+      play_bullets: ['Hit driver to left side', 'Wedge approach'],
+      terrain_note: '10ft uphill to green',
+      miss_left: 'Chip back to fairway',
+      miss_right: 'Punch under trees',
+      danger: 'OB right off the tee',
+      target: 'Bogey',
+      is_par_chance: false,
+    }];
+
+    const result = mergeDbDataIntoHoles(leanHoles, [dbHoles[0]], 'White');
+    expect(result[0]).toMatchObject({
+      hole_number: 1,
+      yardage: 350,
+      par: 4,
+      tee_club: 'Driver',
+      aim_point: 'left bunker edge',
+      carry_target: 220,
+      danger: 'OB right off the tee',
+    });
+  });
+
+  it('handles empty lean holes array', () => {
+    const result = mergeDbDataIntoHoles([], dbHoles, 'White');
+    expect(result).toEqual([]);
   });
 });
