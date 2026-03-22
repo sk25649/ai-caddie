@@ -1,4 +1,4 @@
-import type { TeeInfo, CourseIntel, HoleIntel } from '../db/schema';
+import type { TeeInfo, CourseIntel, HoleIntel, CourseHoleMemoryRow } from '../db/schema';
 
 export const CADDIE_SYSTEM_PROMPT = `You are an expert golf caddie AI. Create a tight, personalized hole-by-hole strategy playbook.
 
@@ -115,7 +115,8 @@ export function buildPlaybookPrompt(
   teeName: string,
   weather: WeatherData,
   scoringGoal: string,
-  caddieNotes?: string[]
+  caddieNotes?: string[],
+  priorMemory?: CourseHoleMemoryRow[]
 ): string {
   const clubs = profile.clubs
     .sort((a, b) => (b.carryDistance || 0) - (a.carryDistance || 0))
@@ -126,10 +127,22 @@ export function buildPlaybookPrompt(
     )
     .join('\n');
 
+  // Build a lookup map for prior memory by hole number
+  const memoryByHole = new Map<number, CourseHoleMemoryRow>();
+  if (priorMemory) {
+    for (const m of priorMemory) {
+      memoryByHole.set(m.holeNumber, m);
+    }
+  }
+
   const holesData = course.holes
     .sort((a, b) => a.holeNumber - b.holeNumber)
     .map((h) => {
       const note = caddieNotes?.[h.holeNumber - 1];
+      const memory = memoryByHole.get(h.holeNumber);
+      const priorMemoryStr = memory?.keyLearnings?.length
+        ? `PRIOR MEMORY (${memory.numVisits} visit${memory.numVisits !== 1 ? 's' : ''}): ${memory.keyLearnings.map((l) => l.note).join(' | ')}`
+        : undefined;
       return {
         number: h.holeNumber,
         par: h.par,
@@ -137,6 +150,7 @@ export function buildPlaybookPrompt(
         handicap: h.handicapIndex,
         intel: h.holeIntel,
         ...(note ? { caddieNote: note } : {}),
+        ...(priorMemoryStr ? { priorMemory: priorMemoryStr } : {}),
       };
     });
 
@@ -253,7 +267,8 @@ export function buildPlaybookPromptForRange(
   scoringGoal: string,
   holeStart: number,
   holeEnd: number,
-  caddieNotes?: string[]
+  caddieNotes?: string[],
+  priorMemory?: CourseHoleMemoryRow[]
 ): string {
   const clubs = profile.clubs
     .sort((a, b) => (b.carryDistance || 0) - (a.carryDistance || 0))
@@ -264,11 +279,23 @@ export function buildPlaybookPromptForRange(
     )
     .join('\n');
 
+  // Build a lookup map for prior memory by hole number
+  const memoryByHole = new Map<number, CourseHoleMemoryRow>();
+  if (priorMemory) {
+    for (const m of priorMemory) {
+      memoryByHole.set(m.holeNumber, m);
+    }
+  }
+
   const holesData = course.holes
     .sort((a, b) => a.holeNumber - b.holeNumber)
     .filter((h) => h.holeNumber >= holeStart && h.holeNumber <= holeEnd)
     .map((h) => {
       const note = caddieNotes?.[h.holeNumber - 1];
+      const memory = memoryByHole.get(h.holeNumber);
+      const priorMemoryStr = memory?.keyLearnings?.length
+        ? `PRIOR MEMORY (${memory.numVisits} visit${memory.numVisits !== 1 ? 's' : ''}): ${memory.keyLearnings.map((l) => l.note).join(' | ')}`
+        : undefined;
       return {
         number: h.holeNumber,
         par: h.par,
@@ -276,6 +303,7 @@ export function buildPlaybookPromptForRange(
         handicap: h.handicapIndex,
         intel: h.holeIntel,
         ...(note ? { caddieNote: note } : {}),
+        ...(priorMemoryStr ? { priorMemory: priorMemoryStr } : {}),
       };
     });
 
