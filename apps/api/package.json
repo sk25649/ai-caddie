@@ -8,6 +8,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env src/scripts/seed-courses.ts",
     "db:add-course": "tsx --env-file=.env src/scripts/seed-one-course.ts",
+    "db:seed-via-verde": "tsx --env-file=.env src/scripts/seed-via-verde.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
