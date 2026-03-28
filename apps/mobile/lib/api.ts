@@ -8,20 +8,31 @@ interface ApiResponse<T> {
   details?: unknown;
 }
 
+type OnUnauthorized = () => void;
+
 class ApiClient {
   private token: string | null = null;
+  private onUnauthorized: OnUnauthorized | null = null;
 
   async init(): Promise<void> {
-    this.token = await SecureStore.getItemAsync('auth_token');
+    try {
+      this.token = await SecureStore.getItemAsync('auth_token');
+    } catch {
+      this.token = null;
+    }
   }
 
   setToken(token: string | null): void {
     this.token = token;
     if (token) {
-      SecureStore.setItemAsync('auth_token', token);
+      SecureStore.setItemAsync('auth_token', token).catch(() => {});
     } else {
-      SecureStore.deleteItemAsync('auth_token');
+      SecureStore.deleteItemAsync('auth_token').catch(() => {});
     }
+  }
+
+  setOnUnauthorized(handler: OnUnauthorized): void {
+    this.onUnauthorized = handler;
   }
 
   getToken(): string | null {
@@ -55,6 +66,9 @@ class ApiClient {
       const json = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401 && this.onUnauthorized) {
+          this.onUnauthorized();
+        }
         throw new ApiError(json.error || 'Request failed', res.status, json.details);
       }
 
