@@ -4,7 +4,6 @@ import { Card } from '../ui/Card';
 interface FeatureLockedPromptProps {
   featureName: string;
   featureDescription: string;
-  upgradePlan?: 'pro' | 'founding';
   onUpgrade: () => void;
   onDismiss: () => void;
 }
@@ -15,12 +14,11 @@ interface FeatureLockedPromptProps {
 export function FeatureLockedPrompt({
   featureName,
   featureDescription,
-  upgradePlan = 'pro',
   onUpgrade,
   onDismiss,
 }: FeatureLockedPromptProps) {
-  const planPrice = upgradePlan === 'founding' ? '$49/year' : '$79/year';
-  const planLabel = upgradePlan === 'founding' ? 'Founding' : 'Pro';
+  const planPrice = '$14.99/mo';
+  const planLabel = 'Pro';
 
   return (
     <Card className="mx-4 mb-4">
