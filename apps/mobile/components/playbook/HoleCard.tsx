@@ -79,9 +79,9 @@ export function HoleCard({ hole, score, onScore, onNext, isCompetitionMode = fal
 
   const handleScore = (value: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const isSetting = score !== value;
-    onScore(score === value ? null : value);
-    if (isSetting) {
+    const isNewEntry = score === null;
+    onScore(value);
+    if (isNewEntry) {
       if (nextTimerRef.current) clearTimeout(nextTimerRef.current);
       nextTimerRef.current = setTimeout(() => onNext?.(), 400);
     }
