@@ -8,8 +8,9 @@ import {
   playerClubs,
   courses,
   holes,
+  courseHoleMemory,
 } from '../db/schema';
-import type { HoleStrategy } from '../db/schema';
+import type { HoleStrategy, HoleMemoryLearning, CourseHoleMemoryRow } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { CADDIE_SYSTEM_PROMPT, CADDIE_BACK9_SYSTEM_PROMPT, buildPlaybookPrompt, buildPlaybookPromptForRange, buildCustomCoursePrompt, mergeDbDataIntoHoles } from '../lib/prompts';
@@ -172,13 +173,36 @@ playbookRoutes.post('/generate', async (c) => {
     // Weather fetch failed — proceed without it
   }
 
+  // Fetch prior course memory for this player + course
+  let priorMemory: CourseHoleMemoryRow[] = [];
+  try {
+    const memoryRows = await db
+      .select()
+      .from(courseHoleMemory)
+      .where(
+        and(
+          eq(courseHoleMemory.profileId, profile.id),
+          eq(courseHoleMemory.courseId, courseId)
+        )
+      );
+    priorMemory = memoryRows.map((r) => ({
+      holeNumber: r.holeNumber,
+      keyLearnings: (r.keyLearnings as HoleMemoryLearning[]) || [],
+      numVisits: r.numVisits,
+    }));
+  } catch (err) {
+    console.error('[playbook] Failed to fetch course memory (non-fatal):', err);
+  }
+
   // Build prompt and call Claude
   const prompt = buildPlaybookPrompt(
     { ...profile, clubs },
     { ...course, holes: courseHoles },
     teeName,
     forecast as { temp?: number; wind_speed?: number; wind_deg?: number; weather?: Array<{ description: string }> },
-    scoringGoal
+    scoringGoal,
+    undefined,
+    priorMemory.length > 0 ? priorMemory : undefined
   );
 
   let playbookData: PlaybookResponse;
@@ -286,12 +310,21 @@ playbookRoutes.post('/generate-stream', async (c) => {
     });
   }
 
-  // Fetch clubs, course+holes, weather in parallel
-  const [clubsResult, courseResult, holesResult, forecast] = await Promise.all([
+  // Fetch clubs, course+holes, weather, and course memory in parallel
+  const [clubsResult, courseResult, holesResult, forecast, memoryRows] = await Promise.all([
     db.select().from(playerClubs).where(eq(playerClubs.profileId, profile.id)).orderBy(playerClubs.sortOrder),
     db.select().from(courses).where(eq(courses.id, courseId)),
     db.select().from(holes).where(eq(holes.courseId, courseId)).orderBy(holes.holeNumber),
     fetchWeather(courseId, teeTime),
+    db.select().from(courseHoleMemory).where(
+      and(
+        eq(courseHoleMemory.profileId, profile.id),
+        eq(courseHoleMemory.courseId, courseId)
+      )
+    ).catch((err) => {
+      console.error('[playbook-stream] Failed to fetch course memory (non-fatal):', err);
+      return [];
+    }),
   ]);
 
   const course = courseResult[0];
@@ -299,16 +332,23 @@ playbookRoutes.post('/generate-stream', async (c) => {
     return c.json({ error: 'Course not found' }, 404);
   }
 
+  const priorMemory: CourseHoleMemoryRow[] = memoryRows.map((r) => ({
+    holeNumber: r.holeNumber,
+    keyLearnings: (r.keyLearnings as HoleMemoryLearning[]) || [],
+    numVisits: r.numVisits,
+  }));
+
   const weatherData = forecast as { temp?: number; wind_speed?: number; wind_deg?: number; weather?: Array<{ description: string }> };
   const profileWithClubs = { ...profile, clubs: clubsResult };
   const courseWithHoles = { ...course, holes: holesResult };
+  const memoryArg = priorMemory.length > 0 ? priorMemory : undefined;
 
   // Build prompts for front 9 (with meta) and back 9 (holes only)
   const front9Prompt = buildPlaybookPromptForRange(
-    profileWithClubs, courseWithHoles, teeName, weatherData, scoringGoal, 1, 9
+    profileWithClubs, courseWithHoles, teeName, weatherData, scoringGoal, 1, 9, undefined, memoryArg
   );
   const back9Prompt = buildPlaybookPromptForRange(
-    profileWithClubs, courseWithHoles, teeName, weatherData, scoringGoal, 10, 18
+    profileWithClubs, courseWithHoles, teeName, weatherData, scoringGoal, 10, 18, undefined, memoryArg
   );
 
   // Set SSE headers
@@ -484,6 +524,128 @@ async function fetchWeather(courseId: string, teeTime: string): Promise<Record<s
   }
   return {};
 }
+
+// ============ COURSE MEMORY ENDPOINTS ============
+
+const saveLearningSchema = z.object({
+  learning: z.string().min(1).max(500),
+  confidence: z.enum(['high', 'medium', 'low']),
+});
+
+// POST /playbook/courses/:courseId/hole/:holeNumber/learning
+playbookRoutes.post('/courses/:courseId/hole/:holeNumber/learning', async (c) => {
+  const userId = c.get('userId') as string;
+  const courseId = c.req.param('courseId');
+  const holeNumber = parseInt(c.req.param('holeNumber'), 10);
+
+  const uuidSchema = z.string().uuid();
+  if (!uuidSchema.safeParse(courseId).success) {
+    return c.json({ error: 'Invalid courseId' }, 400);
+  }
+  if (isNaN(holeNumber) || holeNumber < 1 || holeNumber > 18) {
+    return c.json({ error: 'holeNumber must be 1-18' }, 400);
+  }
+
+  const body = await c.req.json();
+  const parsed = saveLearningSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'Validation failed', details: parsed.error.flatten() }, 400);
+  }
+
+  const { learning, confidence } = parsed.data;
+
+  // Get profile
+  const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.userId, userId));
+  if (!profile) return c.json({ error: 'Profile not found' }, 404);
+
+  // Verify course exists
+  const [course] = await db.select().from(courses).where(eq(courses.id, courseId));
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  // Fetch existing memory row
+  const [existing] = await db
+    .select()
+    .from(courseHoleMemory)
+    .where(
+      and(
+        eq(courseHoleMemory.profileId, profile.id),
+        eq(courseHoleMemory.courseId, courseId),
+        eq(courseHoleMemory.holeNumber, holeNumber)
+      )
+    );
+
+  const now = new Date().toISOString();
+  const newLearning: HoleMemoryLearning = {
+    note: `[${confidence}] ${learning}`,
+    visitCount: 1,
+    lastUpdated: now,
+  };
+
+  if (existing) {
+    // Merge: add new learning, increment numVisits
+    const currentLearnings = (existing.keyLearnings as HoleMemoryLearning[]) || [];
+    const updatedLearnings = [...currentLearnings, newLearning];
+
+    const [updated] = await db
+      .update(courseHoleMemory)
+      .set({
+        keyLearnings: updatedLearnings,
+        numVisits: existing.numVisits + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(courseHoleMemory.id, existing.id))
+      .returning();
+
+    return c.json({ data: updated });
+  } else {
+    // Insert new row
+    const [inserted] = await db
+      .insert(courseHoleMemory)
+      .values({
+        courseId,
+        profileId: profile.id,
+        holeNumber,
+        keyLearnings: [newLearning],
+        numVisits: 1,
+      })
+      .returning();
+
+    return c.json({ data: inserted }, 201);
+  }
+});
+
+// GET /playbook/courses/:courseId/memory
+playbookRoutes.get('/courses/:courseId/memory', async (c) => {
+  const userId = c.get('userId') as string;
+  const courseId = c.req.param('courseId');
+
+  const uuidSchema = z.string().uuid();
+  if (!uuidSchema.safeParse(courseId).success) {
+    return c.json({ error: 'Invalid courseId' }, 400);
+  }
+
+  const [profile] = await db.select().from(playerProfiles).where(eq(playerProfiles.userId, userId));
+  if (!profile) return c.json({ error: 'Profile not found' }, 404);
+
+  const memoryRows = await db
+    .select()
+    .from(courseHoleMemory)
+    .where(
+      and(
+        eq(courseHoleMemory.profileId, profile.id),
+        eq(courseHoleMemory.courseId, courseId)
+      )
+    )
+    .orderBy(courseHoleMemory.holeNumber);
+
+  const memories: CourseHoleMemoryRow[] = memoryRows.map((r) => ({
+    holeNumber: r.holeNumber,
+    keyLearnings: (r.keyLearnings as HoleMemoryLearning[]) || [],
+    numVisits: r.numVisits,
+  }));
+
+  return c.json({ data: { courseId, memories } });
+});
 
 // GET /playbook/:id
 playbookRoutes.get('/:id', async (c) => {

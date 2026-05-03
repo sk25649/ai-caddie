@@ -148,8 +148,38 @@ export const roundScores = pgTable('round_scores', {
   holeScores: jsonb('hole_scores'),
   totalScore: integer('total_score'),
   notes: text('notes'),
+  // keyLearnings: array of { holeNumber, learning, confidence }
+  keyLearnings: jsonb('key_learnings'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// ============ COURSE HOLE MEMORY ============
+
+export const courseHoleMemory = pgTable(
+  'course_hole_memory',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    courseId: uuid('course_id')
+      .references(() => courses.id, { onDelete: 'cascade' })
+      .notNull(),
+    profileId: uuid('profile_id')
+      .references(() => playerProfiles.id, { onDelete: 'cascade' })
+      .notNull(),
+    holeNumber: integer('hole_number').notNull(),
+    // Array of { note: string, visitCount: number, lastUpdated: timestamp }
+    keyLearnings: jsonb('key_learnings').notNull().default([]),
+    numVisits: integer('num_visits').notNull().default(0),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (table) => ({
+    uniqueMemory: uniqueIndex('unique_course_hole_memory').on(
+      table.profileId,
+      table.courseId,
+      table.holeNumber
+    ),
+  })
+);
 
 // ============ TYPE HELPERS ============
 
@@ -215,4 +245,22 @@ export interface WeatherForecast {
   wind_speed: number;
   wind_deg: number;
   weather: Array<{ description: string }>;
+}
+
+export interface HoleMemoryLearning {
+  note: string;
+  visitCount: number;
+  lastUpdated: string; // ISO timestamp
+}
+
+export interface RoundKeyLearning {
+  holeNumber: number;
+  learning: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface CourseHoleMemoryRow {
+  holeNumber: number;
+  keyLearnings: HoleMemoryLearning[];
+  numVisits: number;
 }

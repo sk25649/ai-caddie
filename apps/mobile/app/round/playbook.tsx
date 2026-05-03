@@ -30,6 +30,7 @@ export default function PlaybookScreen() {
   const streamingHoles = useRoundStore((s) => s.streamingHoles);
   const streamingMeta = useRoundStore((s) => s.streamingMeta);
   const selectedTee = useRoundStore((s) => s.selectedTee);
+  const hydrate = useRoundStore((s) => s.hydrate);
 
   const [preRoundOpen, setPreRoundOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -57,10 +58,11 @@ export default function PlaybookScreen() {
   };
 
   useEffect(() => {
+    void hydrate();
     return () => {
       if (noteTimerRef.current) clearTimeout(noteTimerRef.current);
     };
-  }, []);
+  }, [hydrate]);
 
   useEffect(() => {
     if (!isStreaming && !playbook && !course) router.back();
@@ -212,7 +214,6 @@ export default function PlaybookScreen() {
           currentHole={currentHole}
           scores={scores.slice(holesStart, holesStart + holesCount)}
           onSelect={setCurrentHole}
-          holesStart={holesStart}
         />
       )}
 
